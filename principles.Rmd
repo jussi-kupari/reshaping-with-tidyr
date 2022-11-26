@@ -1,0 +1,139 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+# Load tidyverse
+library(tidyverse)
+```
+
+```{r}
+# Two variables in the same column, key-value pairs
+(patient1 <- tribble(
+  ~subject_id, ~gender_age,
+  1001, "m-34",      
+  1002, "f-63",      
+  1003, "m-57",      
+  1004, "f-42",      
+  1005, "m-58",      
+  1006, "f-59",
+))
+
+```
+
+```{r}
+# Separate 
+patient1 %>% 
+  separate(
+    gender_age, 
+    into = c("gender", "age"), 
+    sep = "-", 
+    convert = TRUE
+  )
+```
+
+```{r}
+# # Two variables in the same column, no separator
+(patient2 <- tribble(
+  ~subject_id, ~gender_age,
+  1001, "m34",      
+  1002, "f63",      
+  1003, "m57",      
+  1004, "f42",      
+  1005, "m58",      
+  1006, "f59",
+))
+```
+
+
+```{r}
+# Separate 
+patient2 %>% 
+  separate(
+    gender_age, 
+    into = c("gender", "age"), 
+    sep = 1, 
+    convert = TRUE
+  )
+```
+
+```{r}
+# Splitting and collating - separate() and unite()
+# Input tibble
+(data_value <-
+  tibble(
+    year = c(2015, 2014, 2014),
+    month = c(11, 2, 4),
+    day = c(23, 1, 30),
+    value = c("high", "low", "low")))
+```
+
+```{r}
+(date_unite <- 
+   data_value %>% 
+   unite("date", c(year:day), sep = "-" ))
+```
+
+```{r}
+# Splitting columns continued
+# Use quotes to designate columns since we are not refering to objects.
+# Note: then why can we use unquoted col = in unite before the column exists?
+date_unite %>% 
+  separate(date, c("year", "month", "day"))
+```
+
+```{r}
+# Parsing dates with Lubridate functions
+# A gift from your collaborators
+(visit_times <- tribble(
+  ~subject, ~visit_date,
+  1, "01/07/2001",
+  2, "01.MAY.2012",
+  3, "12-07-2015",
+  4, "4/5/14",
+  5, "12. Jun 1999"
+))
+```
+
+```{r}
+# Lubridate to the rescue!!
+visit_times %>% 
+  mutate(date = lubridate::dmy(visit_date))
+```
+
+```{r}
+# Separate rows with multiple entries 
+# Multiple values per cell
+# Note the incoherent white space and separators
+(patient_df <- tibble(
+    subject_id = 1001:1003, 
+    visit_id = c("1,2, 3", "1|2", "1"),
+    measured = c("9,0, 11", "11, 3", "12")))
+```
+
+```{r}
+# Separate rows
+(patient_separate <- 
+patient_df %>% 
+  separate_rows(c(visit_id, measured), convert = TRUE))
+```
+
+```{r}
+# Fill all combinations with complete()
+patient_separate %>% 
+  complete(subject_id, visit_id)
+```
+
+```{r}
+# Note that the 'nesting' is not required here
+patient_separate %>% 
+  complete(subject_id, nesting(visit_id))
+```
+
+```{r}
+# Fill all combinations with complete()
+patient_separate %>% 
+  complete(subject_id, visit_id, fill = list(measured = 0))
+```
+
