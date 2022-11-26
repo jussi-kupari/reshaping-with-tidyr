@@ -1,0 +1,1773 @@
+---
+title: "Reshaping Data with tidyr"
+output: html_notebook
+---
+
+### Course Description
+Data in the wild can be scary—when confronted with a complicated and messy dataset you may find yourself wondering, where do I even start? The tidyr package allows you to wrangle such beasts into nice and tidy datasets. Inaccessible values stored in column names will be put into rows, JSON files will become data frames, and missing values will never go missing again. You’ll practice these techniques on a wide range of messy datasets, learning along the way how many dogs the Soviet Union sent into space and what bird is most popular in New Zealand. With the tidyr package in your tidyverse toolkit, you’ll be able to transform almost any dataset in a tidy format which will pay-off during the rest of your analysis.
+
+# 1 Tidy data
+You’ll be introduced to the concept of tidy data which is central to this course. In the first two lessons, you’ll jump straight into the action by separating messy character columns into tidy variables and observations ready for analysis. In the final lesson, you’ll learn how to overwrite and remove missing values.
+
+#### **Multiple variables per column**
+Being a busy person, you don’t want to spend too much time on Netflix, so you decide to crunch some numbers on TV show and movie durations before deciding what to watch. You’ve managed to obtain a dataset named `netflix_df`, but its `duration` column has an issue. It contains strings with both a value and unit of duration (“min” or “Season”).
+
+You’ll tidy this dataset so that each variable gets its own column.
+
+Separate the `duration` column over two variables named `value` and `unit`. Pass the string separating the number from the unit to the sep argument.
+
+```{r}
+# Load tidyverse
+library(tidyverse)
+library(magrittr)
+library(cowplot)
+```
+
+```{r}
+# load netflix_durations.rds as netflix_df
+(netflix_df <-
+   readRDS(here::here("datasets", "Netflix_data", "netflix_duration.rds")))
+```
+
+```{r}
+# Separate 'duration' column into value and unit
+netflix_df %>% 
+  separate(
+    duration, 
+    into = c("value", "unit"), 
+    sep = " ", 
+    convert = TRUE # converts value from char to int 
+  )
+```
+
+#### **Columns with multiple values**
+
+**International phone numbers**
+
+You work for a multinational company that uses auto-dialer software to contact its customers. When new customers subscribe online they are asked for a phone number but they often forget to add the country code needed for international calls. You were asked to fix this issue in the database. You’ve been given a data frame with national numbers and country codes named `phone_nr_df`. Now you want to combine the `country_code` and `national_number` columns to create valid international numbers.
+
+Use the unite() function to create a new `international_number` column, using an empty string as the separator.
+
+```{r}
+# Data
+(phone_nr_df <- 
+  tribble(
+    ~country,   ~country_code,  ~national_number,
+    "USA",  "+1",   "2025550117",
+    "United Kingdom",   "+44",  "1632960924",
+    "Brazil",   "+55",  "95552452220",
+    "Australia",    "+61",  "1900654321",
+    "China",    "+86",  "13555953217",
+    "India",    "+91",  "8555843898"))
+```
+
+```{r}
+# Unite phone number columns
+phone_nr_df %>% 
+  unite(international_number, c(country_code, national_number), sep = "")
+```
+
+**Extracting observations from values**
+
+You’re given a sample of the Netflix dataset containing TV shows and their casts called `tvshow_df`. 
+You want to learn which six actors have the most appearances.
+
+However, the dataset only has one row per TV show, and multiple actors are listed in the `cast` column.
+
+Transform the data so that for each TV show, every actor has a row. The number of appearances will be calculated for you.
+
+Inspect `tvshow_df` in the console. What string separates actors in the cast column?
+
+Use `separate_rows()` on the `cast` column, using the appropriate separator for the `sep` argument.
+Use the `head()` function to keep just the top six.
+
+```{r}
+# Load netflix_series as tvshow_df
+(tvshow_df <- readRDS(here::here("datasets", "Netflix_data", "netflix_series.rds")))
+```
+
+```{r}
+# Separate rows
+tvshow_df %>% 
+  separate_rows(cast, sep = ", ") %>%
+  rename(actor = cast) %>% 
+  arrange(actor)
+```
+
+```{r}
+# Count titles for each actor
+tvshow_df %>% 
+  separate_rows(cast, sep = ", ") %>%
+  rename(actor = cast) %>%  
+  count(actor, sort = TRUE)
+```
+
+**Separating into columns and rows**
+
+You’ve been given a data frame `drink_df` that includes quantities and units. 
+Now you want to create an overview of how much of each ingredient you should buy to make these drinks.
+
+Inspect `drink_df` in the console to find the right separator in the `ingredients` column.
+Separate the `ingredients` column so that for each drink each ingredient gets a row.
+
+```{r}
+# Data
+(drink_df <- 
+  tribble(
+    ~drink, ~ingredients,
+    "Chocolate milk", "milk 0.3 L; chocolate 40 g; sugar 10 g",
+    "Orange juice", "oranges 3; sugar 20 g", 
+    "Cappuccino", "milk 0.1 L; water 0.1 L; coffee 30 g; sugar 5 g"
+  ))
+```
+
+```{r}
+# First separate ingredients to individual rows
+  drink_df %>% 
+  separate_rows(ingredients, sep = "; ") 
+```
+
+Inspect the output of the previous step to find the separator that splits the `ingredients` column 
+into three columns: `ingredient`, `quantity`, and `unit`.
+Make sure to convert data types to numeric when possible.
+
+```{r}
+# Separate ingredients into separate variables
+drink_df %>% 
+  separate_rows(ingredients, sep = "; ") %>% 
+  separate(
+    ingredients, 
+    into = c("ingredient", "quantity", "unit"), 
+    sep = " ", 
+    convert = TRUE
+  ) %>% 
+  replace_na(list(unit = "pcs")) # replaces NA for ingredients that have no unit
+```
+
+Group the data by `ingredient` and `unit`.
+Calculate the total `quantity` of each `ingredient`.
+
+```{r}
+# Calculate the total quantity of each ingredient: using count()
+drink_df %>% 
+  separate_rows(ingredients, sep = "; ") %>% 
+  separate(
+    ingredients, 
+    into = c("ingredient", "quantity", "unit"), 
+    sep = " ", 
+    convert = TRUE
+  ) %>% 
+  replace_na(list(unit = "pcs")) %>% 
+  count(ingredient, unit, wt = quantity, sort = TRUE, name = "quantity") 
+```
+
+```{r}
+# Calculate the total quantity of each ingredient: using group_by() and summarise()
+drink_df %>% 
+  separate_rows(ingredients, sep = "; ") %>% 
+  separate(
+    ingredients, 
+    into = c("ingredient", "quantity", "unit"), 
+    sep = " ", 
+    convert = TRUE
+  ) %>% 
+  replace_na(list(unit = "pcs")) %>% 
+  group_by(ingredient, unit) %>% 
+  summarise(quantity = sum(quantity)) %>% 
+  arrange(desc(quantity))
+```
+
+#### **Missing values**
+**And the Oscar for best director goes to …**
+
+You’re working on a sample of the Netflix dataset `director_df`. This time, the data frame contains just the directors and movie titles. Your goal is to identify the directors who created the most movies. Since the `director` column contains multiple names, you’ll first separate its values over multiple rows and then count the directors.
+
+Since you don’t want movies without directors polluting your overview, you’ll apply the `drop_na()` function.
+
+Inspect `director_df` in the console to see what string separates directors in the director column.
+Spread the values in the director column over separate rows.
+
+```{r}
+# Load data
+(director_df <- readRDS(here::here("datasets", "Netflix_data", "netflix_directors.rds")))
+```
+
+```{r}
+# Separate directors to individual rows, note NAs
+director_df %>% 
+  separate_rows(director, sep = ", ")
+```
+
+```{r}
+ # Count the number of movies per director
+director_df %>% 
+  separate_rows(director, sep = ", ") %>% 
+  count(director, sort = TRUE)
+```
+
+```{r}
+ # Count the number of movies per director, drop NAs
+director_df %>% 
+  separate_rows(director, sep = ", ") %>% 
+  drop_na(director) %>% 
+  count(director, sort = TRUE)
+```
+
+**Imputing sales data**
+
+You’ve been asked to create a report that allows management to compare sales figures per quarter for two years. The problem is that the dataset `sales_df` contains missing values. You’ll need to impute the values in the `year` column so that you can visualize the data.
+
+Inspect `sales_df` in the console, pay attention to the `year` column.
+Use the `fill()` function to impute the `year` column in the correct direction.
+Create a line plot where each year has a different color
+
+```{r}
+# Data
+(sales_df <- 
+   tribble(
+     ~year,~quarter,~sales,
+     NA,"Q1","12498",
+     NA,"Q2","20461",
+     NA,"Q3","19737",
+     "2019","Q4","20314",
+     NA,"Q1","13494",
+     NA,"Q2","19314",
+     NA,"Q3","23640",
+     "2020","Q4","22920") %>% 
+   mutate(year = factor(year)))
+```
+
+```{r}
+# fill missing years upwards
+sales_df %>% fill(year, .direction = "up")
+```
+
+```{r}
+# Create lineplot
+sales_df %>% 
+  fill(year, .direction = "up") %>% 
+  mutate(sales = as.numeric(sales)) %>% 
+  ggplot(aes(quarter, sales, color = year, group = year)) +
+    geom_line(size = 2) +
+ scale_y_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(12000, 24000, 2000), 
+    limits = c(12000, 24000)
+    ) +
+  labs(x = "Quarter", y = "Sales", color = "Year") +
+  cowplot::theme_cowplot()
+```
+
+**Nuclear bombs per continent**
+
+Since WWII, a number of nations have been detonating nuclear bombs for military research. 
+A tally of bombs detonated per nation has been calculated from the Nuclear Explosion DataBase (NEDB) and provided as `nuke_df`. You are interested in finding out how many bombs have been detonated by nations grouped per continent. To achieve this goal, `nuke_df` will be joined to `country_to_continent_df` which is a mapping of nation to continent. You will need to overwrite missing values with zeros so that you can create a nice plot.
+
+Side note 1: Bombs detonated by the Soviet Union were attributed to the Russian Federation.
+
+Side note 2: The Russian Federation is solely mapped to Europe for simplicity.
+
+Inspect `nuke_df` and `country_to_continent_df` in the console.
+Replace the missing values in the `n_bombs` columns with 0L. Adding the L sets the data type to integer.
+
+
+Note! the `country_to_continent_df` was missing from the datasets so I improvising here quite a bit
+I downloaded similar data from here:
+
+https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-Regional-Codes/master/all/all.csv
+
+and will use that to run a similar type of analysis.
+
+Note!! I realized that you can download the `country_to_continent_df` from the link
+in the Rpubs so I will use that later together with my other country data to create the original analysis.
+
+```{r}
+# Load nukes_1962.rds and inspect data
+(nukes_1962_df <- readRDS(here::here("datasets", "Nuclear_data", "nukes_1962.rds")))
+```
+
+```{r}
+# Load country_to_continent_df
+(country_to_continent_df <- readRDS(here::here("datasets", "Nuclear_data", "country_to_continent.rds")))
+```
+
+```{r}
+# Wrangle country_to_continent_df
+(country_to_continent_slim <-
+   country_to_continent_df %>% 
+   select(country = name, region, country_code = alpha.3) %>%
+   mutate(country = 
+            case_when(
+              country == "United States of America" ~ "United States",
+              country == "United Kingdom of Great Britain and Northern Ireland" ~ "United Kingdom",
+              country == "Korea (Democratic People's Republic of)" ~ "North Korea",
+              country == "Korea, Republic of" ~ "South Korea",
+              TRUE ~ country
+            )
+   ) %>% 
+   mutate(region = if_else(country == "Antarctica", "Antarctica", region))
+)
+```
+
+```{r}
+# Join country_to_continent_df to nukes_1962
+country_to_continent_slim %>% 
+  left_join(nukes_1962_df, by = "country") %>% 
+  select(-date) %>% 
+  replace_na(list(total_bombs = 0L))
+```
+
+```{r}
+# Count bombs by region
+country_to_continent_slim %>% 
+  left_join(nukes_1962_df, by = "country") %>% 
+  select(-date) %>% 
+  replace_na(list(total_bombs = 0L)) %>% 
+  count(
+    region, 
+    wt = total_bombs, 
+    name = "total_bombs", 
+    .drop = FALSE, 
+    sort = TRUE
+  )
+```
+
+```{r}
+# Count bombs by region
+country_to_continent_slim %>% 
+  left_join(nukes_1962_df, by = "country") %>% 
+  select(-date) %>% 
+  replace_na(list(total_bombs = 0L)) %>% 
+  count(region, wt = total_bombs, name = "total_bombs", .drop = FALSE) %>% 
+  ggplot(aes(fct_reorder(region, total_bombs), total_bombs, fill = region)) +
+  labs(x = "Region", y = "Total number of bombs") +
+  geom_col() +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(0, 5000, 1000),
+    limits = c(0, 5000)
+    ) +
+  cowplot::theme_cowplot()
+```
+
+# 2 From wide to long and back
+
+This chapter is all about pivoting data from a wide to long format and back again using the `pivot_longer()` and `pivot_wider()` functions. You’ll need these functions when variables are hidden in messy column names or when variables are stored in rows instead of columns. You’ll learn about space dogs, nuclear bombs, and planet temperatures along the way.
+
+#### **From wide to long**
+
+**Nuclear bombs per country**
+
+You’ve been given a version of the Nuclear Explosion DataBase (NEDB) where country names are specified in the column headers `nuke_df`. You want to visualize how many nukes were detonated per year per country. You’ll need to pivot the data and replace NA values first.
+
+```{r}
+# Load nuke_wide_country.rds and inspect
+(nuke_df <- readRDS(here::here("datasets", "Nuclear_data", "nuke_wide_country.rds")))
+```
+
+```{r}
+# Pivot nuke_wide_country_df longer
+nuke_df %>% pivot_longer(-year, names_to = "country", values_to = "n_bombs") 
+```
+
+```{r}
+# Replace NAs with zeros
+nuke_df %>% 
+   pivot_longer(-year, names_to = "country", values_to = "n_bombs") %>% 
+   replace_na(list(n_bombs = 0L)) 
+```
+
+Create a line plot where the number of bombs dropped per country is plotted over time. Use country to color the lines.
+
+```{r}
+# Number of bombs dropped per country is plotted over time
+nuke_df %>% 
+   pivot_longer(-year, names_to = "country", values_to = "n_bombs") %>% 
+   replace_na(list(n_bombs = 0L)) %>% 
+  ggplot(aes(year, n_bombs, color = country, group = country)) +
+  geom_line(size = 1) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(0, 100, 25),
+    limits = c(0, 100)) +
+   scale_x_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(1945, 2020, 25),
+    limits = c(1945, 2020)) +
+  labs(x = "year", y = "Number of bombs") +
+  cowplot::theme_cowplot()
+```
+
+You can see the Cold War nuclear arms race heat up in the sixties and then gradually wane down. Knowing when and how to combine different tidyr functions like `pivot_longer()` and `replace_na()` is an important skill best learned through practice.
+
+
+**Extra! Do the correct plot from the previous chapter using this data (but with regions)**
+
+```{r}
+# Load REAL country_to_continent_df 
+(country_to_continent_real <-
+   readRDS(here::here("datasets", "Nuclear_data", "country_to_continent_df.rds"))
+)
+```
+
+```{r}
+# Join country_to_continent with country_to_continent_slim
+(country_to_continent_df <-
+  country_to_continent_real %>% 
+  left_join(country_to_continent_slim, by = "country_code"))
+```
+
+```{r}
+# Join nuke_long_country_df to country_to_continent_slim
+nuke_df %>% 
+  pivot_longer(-year, names_to = "country", values_to = "n_bombs") %>% 
+  replace_na(list(n_bombs = 0L)) %>% 
+  count(country, wt = n_bombs, name = "n_bombs") %>% 
+  right_join(country_to_continent_df, by = "country") %>% 
+  replace_na(list(n_bombs = 0L)) %>% 
+  arrange(desc(n_bombs)) 
+```
+
+Plot the summed number of bombs detonated by nations from each continent (region in my case).
+
+```{r}
+# Join nuke_long_country_df to country_to_continent_slim
+nuke_df %>% 
+  pivot_longer(-year, names_to = "country", values_to = "n_bombs") %>% 
+  replace_na(list(n_bombs = 0L)) %>% 
+  count(country, wt = n_bombs, name = "n_bombs") %>% 
+  right_join(country_to_continent_df, by = "country") %>%
+  replace_na(list(n_bombs = 0L)) %>% 
+  drop_na(country) %>% # One weird NA row with continent as 'Oceania >'
+  count(continent, wt = n_bombs, sort = TRUE, name = "total_bombs", .drop = FALSE) %>% 
+  ggplot(aes(fct_reorder(continent, total_bombs), total_bombs, fill = continent)) +
+  labs(x = "Region", y = "Total number of bombs") +
+  geom_col() +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(0, 1200, 200),
+    limits = c(0, 1200)
+  ) +
+  cowplot::theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 0.5))
+```
+
+**WHO obesity per country**
+
+According to the World Health Organization (WHO), worldwide obesity has nearly tripled since 1975. You’re interested in the severity of this global health issue per country and whether males and females are affected differently. You’ll use the WHO’s obesity data (`obesity_df`) to investigate this issue. The data holds the percentage of females, males, and both sexes combined that are considered obese (BMI > 30) per country.
+
+You want to create a scatterplot where, per nation, you can see the obesity data colored differently for females and males. This implies that sex should become a variable with its own column.
+
+Inspect `obesity_df` in the console.
+Pivot the male and female columns. The old column names should go in the `sex` column, the original values should go in the `pct_obese` column.
+
+```{r}
+# Download and save data
+obesity_df <- 
+read.csv(
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRpPo4a7Uj9jAtdmEC3p1YixmewdMQKKsKbuu3CoF4COKX7j-y0FpiRzxLGdaWVmb7mrvWOWEaph558/pub?gid=278516960&single=true&output=csv"
+  )
+
+saveRDS(obesity_df, file = here::here("datasets", "obesity_df.rds"))
+```
+
+```{r}
+# Check dataframe
+obesity_df
+```
+
+```{r}
+# Pivot
+obesity_df %>% 
+  pivot_longer(-c(country, both_sexes), names_to = "sex", values_to = "pct_obese") %>% 
+  relocate(both_sexes, .after = last_col()) # Putting the both_sexes column far right
+```
+
+Create a scatterplot with `pct_obese` per country colored by `sex.` The `country` variable has been ordered by overall obesity % and added for you.
+
+```{r}
+# Create scatterplot
+obesity_df %>% 
+  pivot_longer(-c(country, both_sexes), names_to = "sex", values_to = "pct_obese") %>% 
+  ggplot(aes(pct_obese, fct_reorder(country, both_sexes), color = sex)) +
+  geom_point() +
+  scale_x_continuous(
+    labels = scales::label_percent(scale = 1),
+    expand = expansion(mult = c(0,0)),
+    breaks = seq(0, 80, 20),
+    limits = c(0, 80)
+    ) +
+  labs(x = "Percent obese", y = "Country") +
+  cowplot::theme_cowplot()
+```
+There is a huge spread in obesity prevalence over countries. Overall, females are affected more often. Because you put the sex variable in its own column it became easy to add it to a ggplot.
+
+**Bond… James Bond**
+
+You’ve been given a James Bond movie dataset (`bond_df`) and want to visualize the number of movies that Bond actors have featured in per decade. However, the data is in an untidy format with the decade values captured in the column headers. You’ll tidy this dataset to give each variable its own column.
+
+Pivot all columns except `Bond` to a longer format and set the names of the newly created columns to `decade` and `n_movies.`
+
+```{r}
+# Download and check data
+(bond_df <- 
+  read.csv(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vRpPo4a7Uj9jAtdmEC3p1YixmewdMQKKsKbuu3CoF4COKX7j-y0FpiRzxLGdaWVmb7mrvWOWEaph558/pub?gid=595802601&single=true&output=csv"
+    ))
+
+saveRDS(bond_df, here::here("datasets", "bond_df.rds"))
+```
+
+```{r}
+# Fix column names
+(bond_df %<>%  
+  rename_with(.cols = -Bond, .fn = ~str_extract(.x, "\\d+")))
+```
+
+```{r}
+# Pivot
+bond_df %>% 
+  pivot_longer(-Bond, names_to = "decade", values_to = "n_movies")
+```
+
+Drop any `NA` values in the `n_movies` column while it is created.
+
+```{r}
+# Pivot and drop NAs
+bond_df %>% 
+  pivot_longer(
+    -Bond, 
+    names_to = "decade", 
+    values_to = "n_movies", 
+    values_drop_na = TRUE # Drop NAs
+  )
+```
+
+Transform the `decade` column data type to integer.
+
+```{r}
+# Pivot, drop NAs, make 'decade' an integer
+bond_df %>% 
+  pivot_longer(
+    -Bond, 
+    names_to = "decade", 
+    values_to = "n_movies", 
+    values_drop_na = TRUE,
+    names_transform = list(decade = as.integer)
+  )
+```
+
+```{r}
+# Plot, but I will make the 'decade' a factor as that makes more sense
+bond_df %>% 
+  pivot_longer(
+    -Bond, 
+    names_to = "decade", 
+    values_to = "n_movies", 
+    values_drop_na = TRUE,
+    names_transform = list(decade = factor)
+  ) %>% 
+  mutate(decade = str_c(decade, "s")) %>% 
+  ggplot(aes(decade, n_movies, fill = Bond)) + 
+  geom_col() +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(0, 7, 1), 
+    limits = c(0, 7)
+    ) +
+  labs(x = "Decade", y = "Number of movies") +
+  theme_cowplot()
+```
+
+If you’ve worked with tidyr in the past, you may remember the `gather()` function. This is a now retired predecessor of the `pivot_longer()` function.
+
+
+#### **Deriving variables from column headers**
+
+**New-Zealand’s bird of the year**
+
+Every year New Zealanders vote en masse to decide which species gets the bird of the year trophy. The contest is organized by the Forest & Bird agency which allows each person to give points to up to five birds (first pick gets 5 points, second 4, …). Your job is to decide this year’s winner from the messy dataset called `bird_df`.
+
+Inspect `bird_df` in the console.
+Pivot `bird_df` to longer format so that an integer column `points` and a character column `species` are created. Use the `names_prefix` argument to clean up the `points` column and make sure no `NA` values remain.
+
+```{r}
+# Download data
+bird_df <- 
+  read.csv(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi_yI_hSJxlAZpWoqIrp8F9b-g6PLT0snajIporAW2hw8beu90XVaoL_SgfmZ0NAmSRqJyHcCNghPO/pub?gid=1305911804&single=true&output=csv"
+    )
+saveRDS(bird_df, file = here::here("datasets", "birds_df"))
+```
+
+```{r}
+# Inspect
+bird_df
+```
+
+```{r}
+# Pivot data
+bird_df %>% 
+  pivot_longer(
+    cols = everything(), 
+    names_prefix = "points?_", # Note that one column says point_3 and not points_3, hence the regexp
+    names_to = "points", 
+    values_to = "species",
+    names_transform = list(points = as.integer, species = as.character),
+    values_drop_na = TRUE
+    ) 
+```
+
+Calculate the total_points each species got.
+
+```{r}
+# Calculate points per species (using dplyr::count)
+bird_df %>% 
+  pivot_longer(
+    cols = everything(), 
+    names_prefix = "points?_",
+    names_to = "points", 
+    values_to = "species",
+    names_transform = list(points = as.integer, species = as.character),
+    values_drop_na = TRUE # There are no NAs, but there are empty strings
+  ) %>% 
+  filter(species != "") %>%  # Drop rows with empty species
+  count(species, wt = points, sort = TRUE, name = "total_points") %>% 
+  head(5)
+```
+
+Looks like Kākāpō is the winner here!
+
+**Big tech stock prices**
+
+You’re an analyst at an investment firm and want to visualize the weekly closing prices of five big tech firms’ stocks. However, the dataset you’ve been handed (`stock_df`) is messy and has the `year` and `week` variables stored in the column headers. You’ll pivot this data into a tidy format, extract the variables from the headers, and create a line plot.
+
+Inspect `stock_df` in the console.
+Pivot `stock_df` so that the `integer` columns `year` and `week` are created from the column names and the original values are moved to the `price` column. Use the `names_sep` argument to separate the column names.
+
+```{r}
+# Get the data and inspect
+(stock_df <- 
+  read.csv(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vRpPo4a7Uj9jAtdmEC3p1YixmewdMQKKsKbuu3CoF4COKX7j-y0FpiRzxLGdaWVmb7mrvWOWEaph558/pub?gid=1049805716&single=true&output=csv"
+    ))
+```
+
+```{r}
+# Fix column names
+(stock_df %<>% 
+   rename_with(.cols = -company, .fn = ~str_remove(.x, "X")))
+```
+
+```{r}
+# Save data
+saveRDS(stock_df, file = here::here("datasets", "stock_df"))
+```
+
+```{r}
+# Pivot data
+stock_df %>% 
+  pivot_longer(
+    -company,
+    names_to = c("year", "week"),
+    names_sep = "_week", 
+    values_to = "price",
+    names_transform = list(
+      year = as.integer, 
+      week = as.integer
+    )
+  )
+```
+
+Create a line plot where the `price` is shown per `week` and color by `company.` The year variable has been dealt with for you.
+
+```{r}
+# Plot
+stock_df %>% 
+  pivot_longer(
+    -company,
+    names_to = c("year", "week"),
+    names_sep = "_week", 
+    values_to = "price",
+    names_transform = list(
+      year = as.integer, 
+      week = as.integer
+    )
+  ) %>% 
+ggplot(aes(week, price, group = company, color = company)) +
+  geom_line(size = 1) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(0, 3500, 500), 
+    limits = c(0, 3500)
+    ) +
+  labs(x = "Week", y = "Price", color = "Year") +
+  
+  facet_wrap(vars(year)) +
+  theme_cowplot()
+```
+
+You can now extract multiple variables from column headers. I hope you are starting to see just how powerful the `pivot_longer()` function is!
+
+#### **Deriving variables from complex column headers**
+
+**Soviet space dogs, the dog perspective**
+
+You’ll be working on an pre-processed sample of the USSR space dogs database compiled by Duncan Geere and as `space_dogs_df`. Each of the 42 rows in this dataset represents a test rocket launch which had one or two very brave dogs on board.
+
+Your goal is to reshape this dataset so that for each launch, each dog has a row.
+
+The challenge is that in the column headers (`name_1`, `name_2`, `gender_1`, and `gender_2`), the part before the _ separator can point to two different variables (name and gender), while the second part always points to the dog ID (1st or 2nd dog).
+
+```{r}
+# Get data and inspect
+(space_dogs_df <- 
+  read.csv(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrv7ECpC0Jwv5u4Y5KZFZOGJ2SnEruSs7xoGs_ZPLbLS5CI32JVRLAxpv0dyneZovOOQ_jyaqcZeoh/pub?gid=0&single=true&output=csv"
+    ))
+```
+
+```{r}
+# Save dog data
+saveRDS(space_dogs_df, file = here::here("datasets", "space_dogs_df.rds"))
+```
+
+```{r}
+# Pivot data
+(space_dogs_tidy <-
+   space_dogs_df %>% 
+   pivot_longer(
+     -c(date, result),
+     names_sep = "_",
+     # Complete the names_to argument to re-use the first part of the column headers
+     names_to = c(".value", "dog_id"),
+     values_drop_na = TRUE
+   ))
+```
+
+Notice how the “name” and “gender” parts of the old column headers were reused in two new columns. The second part of the old headers is found as a variable in the dog_id column. Since most launches had two dogs, the number of rows almost doubled.
+
+**WHO obesity vs. life expectancy**
+
+_No data available for this_
+
+You’ve been given a sample of WHO data (`who_df`) with obesity percentages and life expectancy data per country, year, and sex. You want to visually inspect the correlation between obesity and life expectancy.
+
+However, the data is very messy with four variables hidden in the column names. Each column name is made up of three parts separated by underscores: Values for the year, followed by those for sex, and then values for either pct.obese or life.exp. Since the third part of the column name string holds two variables you’ll need to use the special “.value” value in the names_to argument.
+
+You’ll pivot the data into a tidy format and create the scatterplot.
+
+Inspect `who_df` in the console.
+
+Pivot the data so that each variable (`year`, `sex`, `pct.obese`, ? ) has a column of the correct data type.
+
+**Uncounting observations**
+
+You’ve found the job of your dreams providing technical support for a dog breed beauty contest. The jury members want a spreadsheet with the breed and id of each participating dog so that they can add the scores later on. You’ve only been given the number of participants per dog breed (`dog_df`) so you decide to use your tidyr skills to create the desired result.
+
+Inspect the data in the console.
+Uncount the data so that per `breed`, each dog gets a row and an ID. The ID should go in the `dog_id` column.
+
+```{r}
+# Generate dataset
+(dog_df <- 
+  tribble(
+    ~breed,            ~n_participants,
+    "Husky",                         5,
+    "Golden retriever",             12,
+    "Poodle",                       13,
+    "Shiba Inu",                     7))
+```
+```{r}
+# Reverse counting using uncount
+dog_df %>% 
+uncount(weights = n_participants, .id = "dog_id") 
+```
+
+May the prettiest dog win! Uncounting data isn’t something you’ll do every day, but in specific cases it’s just what you need.
+
+#### **From long to wide data**
+**Soviet space dogs, the flight perspective**
+
+Remember the USSR space dogs dataset? You changed it to a long format so that for every dog in every rocket launch, there was a row. Suppose you’re given this tidy dataset and are asked to answer the question, “In what percentage of flights were both dogs of the same gender?”
+
+You’ll reshape and investigate `space_dogs_df` to find the answer.
+
+Pivot the data to a wider format, deriving new column names from the `dog_id` column and values from the `gender` column.
+
+```{r}
+# Inspect the tidy data
+(space_dogs_tidy2 <- 
+  space_dogs_tidy %>% 
+  select(date, dog_id, gender))
+```
+
+```{r}
+# Pivot wider (create NAs for empty strings to drop NAs later...)
+space_dogs_tidy2 %>% 
+  pivot_wider(
+    names_from = dog_id, 
+    names_prefix = "gender_",
+    values_from = gender
+  ) %>% 
+  mutate(across(where(is.character), ~na_if(.x, "")))
+```
+
+Drop rows that contain NA values.
+
+```{r}
+# Dop NAs we just created
+space_dogs_tidy2 %>% 
+  pivot_wider(
+    names_from = dog_id, 
+    names_prefix = "gender_",
+    values_from = gender
+  ) %>% 
+  mutate(across(where(is.character), ~na_if(., ""))) %>% 
+  drop_na()
+```
+
+Create a new column `same_gender`, which has a `TRUE` value when gender_1 equals gender_2.
+
+```{r}
+# Create same_gender column
+space_dogs_tidy2 %>% 
+  pivot_wider(
+    names_from = dog_id, 
+    names_prefix = "gender_",
+    values_from = gender
+  ) %>% 
+  mutate(across(where(is.character), ~na_if(., ""))) %>% 
+  drop_na() %>% 
+  mutate(same_gender = gender_1 == gender_2)
+```
+
+```{r}
+# Create same_gender column and check results
+space_dogs_tidy2 %>% 
+  pivot_wider(
+    names_from = dog_id, 
+    names_prefix = "gender_",
+    values_from = gender
+  ) %>% 
+  mutate(across(where(is.character), ~na_if(., ""))) %>% 
+  drop_na() %>% 
+  mutate(same_gender = gender_1 == gender_2) %>% 
+  summarise(percentage_same_gender = mean(same_gender))
+```
+
+The answer to the question is 80%. By switching back to wide format, it was easy to remove flights with just one dog and calculate per-flight properties. If you’ve been using tidyr for some time, prior to version 1.0, the `pivot_wider()` function was named `spread()`.
+
+**Planet temperature & distance to the Sun**
+
+The intensity of light radiated by a light source follows an inverse square relationship with the distance it has traveled.
+
+
+You wonder if you could observe this trend in the temperature of the planets in our Solar System given their distance to the Sun. You’ll use the `planet_df` dataset from the `devstronomy` project to investigate this.
+
+Inspect `planet_df` in the console.
+Use the `pivot_wider()` function to extract column names from the `metric` column and values from the `value` column.
+
+```{r}
+# Download and inspect data
+(planet_df <- readRDS(here::here("datasets", "Planet_data", "planet_metrics_long.rds")))
+```
+
+```{r}
+# Pivot wider
+planet_df %>% 
+  pivot_wider(names_from = metric, values_from = value) # values_from is not required in this case
+```
+
+Use the `ggplot()` function to create a plot with the `temperature` over the `distance_to_sun`.
+
+```{r}
+# Plot
+planet_df %>% 
+  pivot_wider(names_from = metric, values_from = value) %>% 
+  ggplot(
+    aes(
+      distance_to_sun, 
+      temperature, 
+      size = diameter
+      )
+    ) +
+  geom_point() +
+  geom_text(aes(label = planet), vjust = -1, hjust = -0.01) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(-300, 500, 100),
+    limits = c(-300, 500)
+    ) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0, 0)),
+    breaks = seq(0, 5000, 500),
+    limits = c(0, 5000)
+    ) +
+  labs(x = "Distance to the Sun", x = "Temperature", size = "Diameter") +
+  theme_cowplot()
+```
+
+Stellar! The inverse square relation is present indeed. Only Venus doesn’t follow the trend as it is further from the Sun than Mercury but also hotter. Turns out it has a lot of CO2 in its atmosphere trapping the heat. Let’s not become like Venus ;)
+
+**Transposing planet data**
+
+You’re again working on a planet dataset derived from the `devstronomy` project. This time, you’re interested in the `correlation` between the `diameter` of a planet and the `number of moons` circling it.
+
+However, the dataset (`planet_df`) has a row for each variable and a column for each planet (observation). You’ll transpose this data in two steps and then create a plot to inspect the correlation.
+
+Inspect `planet_df` in the console.
+
+```{r}
+# Download and inspect data
+(planet_df <- readRDS(here::here("datasets", "Planet_data", "planet_metrics_wide.rds")))
+```
+
+Pivot the data so that planet names are put in a column named planet.
+
+```{r}
+# First pivot longer
+planet_df %>% 
+  pivot_longer(-metric, names_to = "planet") 
+```
+
+Pivot the data so that each variable in the metric column gets its own column.
+
+```{r}
+# Then pivot wider
+planet_df %>% 
+  pivot_longer(-metric, names_to = "planet") %>% 
+  pivot_wider(names_from = metric, values_from = value)
+```
+
+Use the `ggplot()` function to create a plot with the `number_of_moons` over `diameter`.
+
+```{r}
+# Plot
+planet_df %>% 
+  pivot_longer(-metric, names_to = "planet") %>% 
+  pivot_wider(names_from = metric, values_from = value) %>% 
+  ggplot(aes(diameter, number_of_moons, size = diameter)) +
+  geom_point() +
+  geom_text(aes(label = planet, vjust = -1, hjust = 0.75)) +
+  scale_y_continuous(limits = c(0, 85)) +
+  labs(x = "Diameter (km)", y = "Number of moons") +
+  theme(legend.position = "none") 
+```
+
+Well done! It’s clear that bigger planets tend to have more moons. Once you’re able to split the messiness of a dataset into smaller, easier to fix problems, you’ve become a data wrangling master.
+
+
+# 3 Expanding data
+
+#### **3.1 Creating unique combinations of vectors**
+
+**3.1.1 Letters of the genetic code**
+
+The basic building blocks of RNA are four molecules described by a single letter each: adenine (A), cytosine (C), guanine (G), and uracil (U). The information carried by an RNA strand can be represented as a long sequence of these four letters. To read this code, one has to divide this chain into sequences of three letters each (e.g. GCU, ACG, …). These three letter sequences are known as codons. 
+
+Your goal for this exercise is to create a data frame with all possible three letter sequences (codons) from a vector with the four letters representing the RNA building blocks.
+
+Create a `tibble` with three columns called `letter1`, `letter2`, and `letter3` that holds all possible combinations of the vector letters using `expand_grid()`.
+
+```{r}
+# Create tibble of codons
+(codon_df <- 
+  expand_grid(
+    letter1 = c("A", "T", "C", "G"),
+    letter2 = c("A", "T", "C", "G"),
+    letter3 = c("A", "T", "C", "G")
+))
+```
+
+
+Use the `unite()` function from chapter one to merge these three columns into a single column named `codon`. Use an empty string as the separator.
+
+```{r}
+# Unite codons
+codon_df %>% 
+  unite("codon", letter1:letter3, sep = "")
+```
+
+
+There are 64 possible codons. They encode 20 amino acids, the building blocks of proteins and, thus, you!
+
+**3.1.2 When did humans replace dogs in space?**
+
+You already know that in the early days of spaceflight, the USSR was testing rockets with dogs. You now wonder when exactly humans started replacing dogs on space flight missions. You’ve been given a dataset `space_df` with the number of both dogs (compiled by Duncan Geere) and humans in space per year from 1951 till 1970 (collected from Wikipedia).
+
+Your goal is to create a plot that shows you the number of individuals sent into space per species. Before you can create this plot, you’ll first have to introduce zero values for missing combinations of year and species.
+
+Create `full_df`, a tibble with all unique combinations of the variables year (from 1951 to 1970) and species (“Human” and “Dog”).
+
+```{r}
+# Create full_df
+(full_df <-
+  expand_grid(year = 1951:1970, species = c("Human", "Dog")))
+```
+
+
+Perform a `right_join()` between `space_df` and `full_df` on the `year` and `species` columns.
+
+```{r}
+# Load data
+(space_df <- 
+  read.csv(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrv7ECpC0Jwv5u4Y5KZFZOGJ2SnEruSs7xoGs_ZPLbLS5CI32JVRLAxpv0dyneZovOOQ_jyaqcZeoh/pub?gid=1478550685&single=true&output=csv"
+  ))
+```
+
+```{r}
+# Save data
+saveRDS(space_df, file = here::here("datasets", "space_df.rds"))
+```
+
+```{r}
+# Join tables
+space_df %>% 
+  right_join(full_df, by = c("year", "species")) %>% 
+  arrange(year)
+```
+
+Use the `ggplot()` function to create a line plot of `n_in_space` over `year`, colored by `species`.
+
+```{r}
+# Plot
+space_df %>% 
+  right_join(full_df, by = c("year", "species")) %>% 
+  ggplot(aes(year, n_in_space, color = species)) +
+  geom_line(size = 1) # Why are the dogs from 1951 not shown??
+```
+Use the `replace_na()` function to overwrite NA values in the `n_in_space` column with zeros.
+
+```{r}
+# Replace NAs
+space_df %>% 
+  right_join(full_df, by = c("year", "species")) %>% 
+  replace_na(list(n_in_space = 0L)) %>% 
+  ggplot(aes(year, n_in_space, color = species)) +
+  geom_line(size = 1) 
+```
+
+Note that we can create this data and plot using the `complete` function introduced below
+like this:
+
+```{r}
+# With NAs
+space_df %>% 
+  complete(year, species) %>% 
+  ggplot(aes(year, n_in_space, color = species)) +
+  geom_line(size = 1)
+```
+
+```{r}
+# NAs replaced with zeros
+space_df %>% 
+  complete(year, species, fill = list(n_in_space = 0)) %>% 
+  ggplot(aes(year, n_in_space, color = species)) +
+  geom_line(size = 1)
+```
+
+It looks like 1961 was the year humans replaced dogs in space. Adding zero observations allowed you to create a correct and complete plot.
+
+**3.1.3 Finding missing observations**
+You’re an inspector at a nuclear plant and have to validate whether every reactor has received its daily safety check over the course of a full year. The safety check logs are in `reactor_df`, a data frame with columns `date`, `reactor`, and `check`.
+
+Two vectors, `dates` and `reactors`, with all dates of the year and reactors at the plant respectively have been created for you. You’ll use the combination of the `expand_grid()` and `anti_join()` functions to find dates where particular reactors were not checked.
+
+Use the `expand_grid()` function to create a tibble holding all combinations of the variables `date` and `reactor`. Use the `dates` and `reactors` vectors created for you.
+
+```{r}
+# Vectors needed
+dates <- seq(as.Date("1986-01-01"), as.Date("1986-12-31"), "days")
+reactors <- c("A","B","C","D")
+
+expand_grid(dates = dates, reactors = reactors)
+```
+
+No reactor data available...
+
+#### **3.2 Completing data with all value combinations**
+
+**3.2.1 Completing the Solar System**
+
+You have been given a data frame (`planet_df`) from the devstronomy project with the number of moons per planet in our Solar System. However, Mercury and Venus, the two moonless planets, are absent. You want to expand this dataset using the complete() function and a vector `planets` that contains all eight planet’s names.
+
+Complete the planet variable using the planets vector.
+
+```{r}
+ # Planets vector
+planets <- c("Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune")
+```
+
+```{r}
+# Generate planet_df
+(planet_df <-
+  tribble(
+    ~planet, ~n_moons,
+    "Earth", 1,
+    "Mars", 2,
+    "Jupiter", 79,
+    "Saturn", 62,
+    "Uranus", 27,
+    "Neptune", 14))
+```
+
+```{r}
+# Complete dataset
+planet_df %>% 
+complete(planet = planets, fill = list(n_moons = 0L))
+```
+
+Well done! By completing with a vector of all known planets, you can be sure that each will have an observation in the output. Did you know Jupiter is circled by at least 79 moons? This number is likely to increase as new ones continue to be discovered every few years.
+
+**3.2.2 Zero Olympic medals**
+
+Since 1896, athletes from all over the world have been competing in the modern Olympic games. You’ve been given a dataset (medal_df) with observations for all medals won by athletes from the 10 most successful countries in Olympic history. You want to create a visual with the number of medals won per country (team) per year. However, since not all countries won medals each year, you’ll have to introduce zero values before you can make an accurate visual.
+
+In step 2 and 3 the scale_color_brewer() function is used to color lines in the plot with a palette that makes it easier to distinguish the different countries.
+
+Inspect medal_df in the console.
+Count the number of medals won per team and year.
+
+Note: Dataset seems to be wrong so I will just do something here
+
+```{r}
+(medal_df <- readRDS("~/reshaping_data_with_tidyr/datasets/olympic_medals_top_10.rds"))
+```
+
+```{r}
+medal_df %>% 
+  complete(
+    year, 
+    medal, 
+    team, 
+    fill = 
+      list(sport = "who knows?", name = "nobody!")
+  )
+```
+
+```{r}
+medal_df %>% 
+  complete(
+    year, 
+    medal, 
+    team, 
+    fill = 
+      list(sport = "who knows?", name = "nobody!")
+  ) %>% 
+  count(year, team, sort = TRUE) 
+```
+
+
+**3.2.3 Creating a sequence with full_seq()**
+
+The `full_seq()` function will look for the minimal and maximal values inside the vector you pass it and will then generate a full sequence of numbers with a fixed period in between them. When used inside the `complete()` function, `full_seq()` is a handy tool to make sure there are no missing observations in your data. Before combining these two functions you’ll generate a few sequences with `full_seq()` on its own to get the hang of this function.
+
+Use `full_seq()` to create a sequence with all years from 2020 till 2030.
+
+```{r}
+# Create sequence of years
+(years <- full_seq(c(2020, 2030), period = 1))
+```
+
+Use `full_seq()` to create a sequence with all decades from 1980 till 2030.
+
+```{r}
+# Create a sequence of decades
+(decades <- full_seq(c(1980, 2030), period = 10))
+```
+
+Use `full_seq()` to create a sequence with all dates in 1980 using the `outer_dates` vector.
+
+```{r}
+# Outer dates
+(outer_dates <- c(as.Date("1980-01-01"), as.Date("1980-12-31")))
+```
+
+```{r}
+# # Generate the dates for all days in 1980
+full_seq(outer_dates, period = 1)
+```
+
+Well done! Now that you know how the `full_seq()` function works, you can start plugging it into the `complete()` function.
+
+**3.2.4 The Cold War’s hottest year**
+
+In October 1962, during the Cuban missile crisis, the world came close to a full scale nuclear war. Throughout 1962, the USA, USSR, and France together detonated a record 178 nuclear bombs for military power display and research. You’ve been given a sample of the Nuclear Explosion Database (NEDB) for that year (`cumul_nukes_1962_df`) with an observation for each date on which a bomb was detonated. The `total_bombs` variable contains the cumulative number of bombs detonated by a country up to that point in time.
+
+You’ll complete the dataset to hold the full sequence of dates, and visualize the total number of bombs per country over time. You’ll also use the `fill()` function from Chapter One to impute missing values.
+
+Complete the dataset so that for each country there is an observation of each date using the `full_seq()` function.
+
+```{r}
+# Load and inspect dataset
+(cumul_nukes_1962_df <- readRDS("~/reshaping_data_with_tidyr/datasets/Nuclear_data/nukes_1962.rds"))
+```
+
+```{r}
+# Complete
+cumul_nukes_1962_df %>% 
+  complete(
+    country, 
+    date = full_seq(date, period = 1)
+  )
+```
+
+Group the data by country.
+Use the `fill()` function to overwrite NA values in the `total_bombs` variable with the last known value.
+
+```{r}
+# Overwrite NAs per country
+cumul_nukes_1962_df %>% 
+  complete(
+    country, 
+    date = full_seq(date, period = 1)
+  ) %>% 
+  group_by(country) %>% # For each country
+  fill(total_bombs) # Fill NA with value of last date to get cumulative values
+```
+
+Use `ggplot()` to visualize the `total_bombs` at any given date, color the line plot by country. Some code has been added for you to visualize the Cuban Missile Crisis.
+
+```{r}
+# Plot
+cumul_nukes_1962_df %>% 
+  complete(
+    country, 
+    date = full_seq(date, period = 1)
+  ) %>% 
+  group_by(country) %>% 
+  fill(total_bombs) %>% 
+  ggplot(aes(date, total_bombs, color = country)) +
+  geom_line(size = 1) +
+  geom_rect(
+    xmin = as.Date("1962-10-16"), 
+    xmax = as.Date("1962-10-29"), 
+    ymin = -Inf, 
+    ymax = Inf, 
+    color = NA
+    ) +
+  geom_text(
+    x = as.Date("1962-10-22"), 
+    y = 15, 
+    label = "Cuban Missile Crisis", 
+    angle = 90, 
+    color = "white"
+    ) +
+  theme_cowplot()
+```
+
+
+Good job! Looks like the USSR only started running experiments in the second part of the year. The `full_seq()` function allowed you to add dates not yet seen in the data.
+
+#### **3.3 Advanced completions**
+
+**3.3.1 Olympic medals per continent**
+You want to compare Olympic performance of athletes per continent over time, both on the winter and summer Olympics. You’ve been given a dataset `medal_df` with the average number of medals won per participant of each continent since 1928. You’ll complete this data to introduce zero values for years where a continent did not win any medals.
+
+Complete the dataset so that each continent has a medals_per_participant value at each Olympic event. Missing values should be filled with zeros.
+Nest the season and year variables using the `nesting()` function, since the summer and winter Olympics don’t occur in the same years.
+Use `ggplot()` to create a line plot with the medals_per_participant per year, color the plot by continent
+
+```{r}
+# Load data
+(medal_df <- 
+  read.csv(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7ryL3YFNP4S9bw-F31Ejavx2ZJIBM5yWWVclfVSONfXMeTzaJaIe8yeCkma0FJuudkTUbIbRyWlDz/pub?gid=1081899654&single=true&output=csv"
+  ))
+```
+
+```{r}
+# Save data
+saveRDS(medal_df, file = here::here("datasets", "medal_df.rds"))
+```
+
+```{r}
+# Without filling in NAs
+medal_df %>% 
+  complete(
+    continent, 
+    nesting(season, year), 
+    fill = list(medals_per_participant = 0)
+  )
+```
+
+```{r, fig.width=12}
+# Plot
+medal_df %>% 
+  complete(
+    continent, 
+    nesting(season, year), 
+    fill = list(medals_per_participant = 0)
+  ) %>% 
+  ggplot(aes(year, medals_per_participant, color = continent)) + 
+  geom_line(size = 2, alpha = 0.75) + 
+  facet_grid(season ~ continent) +
+  theme(legend.position = "none")
+```
+
+Well done! Since the nineties, North American athletes have been most proficient, especially in the winter Olympics. Nesting variables while completing is important to avoid adding nonsensical observations to your data, like summer Olympics in years where they did not happen.
+
+**3.3.2 Tracking a virus outbreak**
+
+You’re a doctor in a remote village confronted with a virus outbreak. You have been collecting data on when your patients got infected and recovered in a data frame named `patient_df`. Your goal is to create a visual with the number of sick patients over time. You’ll first have to reshape the data so that you can count the number of sick patients per day.
+
+Inspect `patient_df` in the console.
+Pivot the infected and recovered columns to long format, the old column names should go in the status variable, the values to date.
+
+```{r}
+(patient_df <- read.csv(
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7ryL3YFNP4S9bw-F31Ejavx2ZJIBM5yWWVclfVSONfXMeTzaJaIe8yeCkma0FJuudkTUbIbRyWlDz/pub?gid=1724949310&single=true&output=csv"
+))
+```
+
+```{r}
+# Save data
+saveRDS(patient_df, file = here::here("datasets", "patient_df.rds"))
+```
+
+```{r}
+# Pivot
+patient_df %>% 
+  pivot_longer(
+    -patient, 
+    names_to = "status", 
+    values_to = "date", 
+    values_transform = list(date = as.Date) 
+  ) 
+```
+
+Group the data by patient and then complete the date column so that each date between infection and recovery is added using the `full_seq()` column. At the end, ungroup the data.
+
+```{r}
+# Complete for each date in between
+patient_df %>% 
+  pivot_longer(
+    -patient, 
+    names_to = "status", 
+    values_to = "date", 
+    values_transform = list(date = as.Date) 
+  ) %>% 
+  group_by(patient) %>% 
+  complete(date = full_seq(date, period = 1)) %>% 
+  fill(status) %>% 
+  ungroup() 
+```
+
+Each date is now a day on which a patient was sick[sic!], count the dates and name the new variable n_sick.
+Note: This is not true as there are dates with "recovered" in the data that must be removed.
+
+```{r}
+# Count n_sick
+patient_df %>% 
+  pivot_longer(
+    -patient, 
+    names_to = "status", 
+    values_to = "date", 
+    values_transform = list(date = as.Date) 
+  ) %>% 
+  group_by(patient) %>% 
+  complete(date = full_seq(date, period = 1)) %>% 
+  fill(status) %>% 
+  ungroup() %>% 
+  filter(status == "infected") %>% 
+  count(date, name = "n_sick") %>% 
+  ggplot(aes(date, n_sick)) + 
+  geom_line()
+```
+
+Good job! Combining `group_by()` with tidyr functions further broadens the range of manipulations you can do.
+
+**3.3.3 Counting office occupants**
+
+Imagine you’re an office facility manager and want to know how many people are present throughout the day. You’ve installed a sensor at the entrance that counts the number of people entering and leaving the building. The sensor sends an update at the end of every 20 minute time slot if at least one person passed.
+
+To create a dataset ready for visualization, you’ll combine the different techniques you’ve learned so far.
+
+Complete the time variable by using the `seq()` function to create a sequence between the min and max values with an interval of “20 min”. Fill NA values of `enter` and `exit` with 0L.
+
+```{r}
+(sensor_df <- read.csv(
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7ryL3YFNP4S9bw-F31Ejavx2ZJIBM5yWWVclfVSONfXMeTzaJaIe8yeCkma0FJuudkTUbIbRyWlDz/pub?gid=1171603308&single=true&output=csv"
+  ))
+```
+
+```{r}
+# Save data
+saveRDS(sensor_df, file = here::here("datasets", "sensor_df.rds"))
+```
+
+```{r}
+# Complete time and fill NAs for enter and exit
+sensor_df %>% 
+  mutate(time = as.POSIXct(time)) %>% 
+  complete(
+  #  time = full_seq(time, period = 1200), This is using full_seq, notice: 1200 seconds 
+    time = seq(min(time), max(time), by = "20 min"),
+    fill = list(enter = 0L, exit = 0L)
+  )
+```
+
+Calculate the `total_inside` variable by taking the cumulative sum of `enter` plus `exit` using the `cumsum()` function.
+
+```{r}
+# Calculate the number of people inside at each timepoint
+sensor_df %>% 
+  mutate(time = as.POSIXct(time)) %>% 
+  complete(
+    time = seq(min(time), max(time), by = "20 min"),
+    fill = list(enter = 0L, exit = 0L)
+  ) %>% 
+  mutate(total_inside = cumsum(enter + exit)) 
+```
+
+Pivot the `enter` and `exit` columns to long format. The column names should go in the `direction` variable, the values in `n_people`.
+
+```{r}
+# Pivot
+sensor_df %>% 
+  mutate(time = as.POSIXct(time)) %>% 
+  complete(
+    time = seq(min(time), max(time), by = "20 min"),
+    fill = list(enter = 0L, exit = 0L)
+  ) %>% 
+  mutate(total_inside = cumsum(enter + exit)) %>% 
+  pivot_longer(enter:exit, names_to = "direction", values_to = "n_people")
+```
+
+Use `ggplot()` to visualize the `n_people` in the building over time. Use the `fill` argument to color the area plot by `direction`.
+
+```{r}
+# Plot
+sensor_df %>% 
+  mutate(time = as.POSIXct(time)) %>% 
+  complete(
+    time = seq(min(time), max(time), by = "20 min"),
+    fill = list(enter = 0L, exit = 0L)
+  ) %>% 
+  mutate(total_inside = cumsum(enter + exit)) %>% 
+  pivot_longer(c(enter, exit), names_to = "direction", values_to = "n_people") %>% 
+  ggplot(aes(time, n_people, fill = direction)) +
+  geom_area() +
+  geom_line(aes(y = total_inside)) +
+  theme_cowplot()
+```
+
+Good job! You can see the entries and exits in the area plot and the total number of people inside in the black line. Sensor data often comes at high frequencies so being able to complete timestamps is a powerful skill.
+
+# 4 Rectangling data
+
+In the final chapter, you’ll learn how to turn nested data structures such as JSON and XML files into tidy, rectangular data. This skill will enable you to process data from web APIs. You’ll also learn how nested data structures can be used to write elegant modeling pipelines that produce tidy outputs.
+
+
+#### **4.1 Intro to non-rectangular data**
+**4.1.1 Rectangular vs non-rectangular files**
+
+Rectangular data: Spreadsheet, CSV
+
+Non-rectangular data: JSON, XML
+
+**4.1.2 Rectangling Star Wars movies**
+
+Let’s pretend you’re a big Star Wars fan and decided to scrape some data from the Star Wars API. You’ve already loaded the JSON-formatted response into R, and now have two lists of movies named `movie_list` and `movie_planets_list`. Your goal is to turn these into rectangular data frames with one row per movie so that you can start crunching those movie stats.
+
+Create a `tibble` with a single column called `movie` out of the input `movie_list`.
+
+```{r}
+# Load data
+movie_list <- readRDS(here::here("datasets", "Star_Wars_data", "star_wars_movie_list.rds"))
+```
+
+```{r}
+# Create tibble
+tibble(movie = movie_list)
+```
+
+Widen the dataset by unnesting the `movie` column over multiple columns.
+
+```{r}
+# Unnest the movie colum to multiple columns 
+tibble(movie = movie_list) %>%
+  unnest_wider(movie)
+ # unnest_auto(movie)  This also works here
+```
+
+Re-create the tibble with a single column called `movie` out of `movie_planets_list`.
+
+```{r}
+# Load data
+(movie_planets_list <- 
+   readRDS(here::here("datasets", "Star_Wars_data", "star_wars_movie_planet_list.rds")))
+```
+
+```{r}
+# Unnest wider
+tibble(movie_planets_list) %>% 
+  unnest_wider(movie_planets_list)
+```
+
+Unnest the `planets` column to a wider format.
+
+```{r}
+# Widen the planets list-column
+tibble(movie_planets_list) %>% 
+  unnest_wider(movie_planets_list) %>% 
+  unnest_wider(planets)
+```
+
+Interesting! You’re able to unnest the full tree structure of the `movie_planets_list`, but don’t end up with a tidy format. You’ll learn how to fix this in the next lesson.
+
+
+#### **4.2 From nested values to observations**
+**4.2.1 Unnesting wide or long**
+
+There are the two situations where it is clear which unnesting function to try: **named lists of fixed length = unnest_wider()**, _unnamed lists of varying length = unnest_longer()_. There are other situations, like named lists with varying number of elements, where some trial and error will be necessary.
+
+**4.2.2 Rectangling Star Wars planets**
+Let’s finish what we started in the last exercise of the previous lesson, exploring Star Wars planets (the `movie_planets_list` scraped from the Star Wars API). You’ll need two specific unnesting operations to completely rectangle this data.
+
+Create a tibble with a single column called `movie` out of `movie_planets_list`.
+
+```{r}
+# Create tibble
+tibble(movie = movie_planets_list)
+```
+
+Unnest the `movie` list column which contains **named lists of equal length**.
+
+```{r}
+# Unnest wider
+tibble(movie = movie_planets_list) %>% 
+  unnest_wider(movie)
+```
+
+Unnest the planets list column which contains _unnamed lists of unequal length_.
+```{r}
+# Unnest longer
+tibble(movie = movie_planets_list) %>% 
+  unnest_wider(movie) %>% 
+  unnest_longer(planets)
+```
+
+Note that `unnest_auto` works nicely here.
+```{r}
+# Unnesting twice using unnest_auto
+tibble(movie = movie_planets_list) %>% 
+  unnest_auto(movie) %>% 
+  unnest_auto(planets)
+```
+
+Nice work! You now have a tidy dataset with one observation for every planet featured in each movie.
+
+**4.2.3 The Solar System’s biggest moons**
+
+Most planets in our solar system are accompanied by at least one moon. You now wonder which planets are circled by the biggest moons and want to create a top five based on moon radius. However, you’ll first have to unnest the devstronomy project data in `planet_moons_list_df` using the `unnest_longer()` and `unnest_wider()` functions.
+
+Unnest the `moons` column so that each moon gets an observation.
+
+```{r}
+# Load data
+(planet_moons_list_df <- readRDS(here::here("datasets", "Planet_data", "planet_moons_list_df.rds")))
+```
+
+```{r}
+# Unnest longer
+planet_moons_list_df %>% 
+  unnest_longer(moons)
+```
+
+Unnest the `moons` column so that its contents are split over columns.
+
+```{r}
+# Unnest wider
+planet_moons_list_df %>% 
+  unnest_longer(moons) %>% 
+  unnest_wider(moons)
+```
+
+Unnest the `moon_data` column so that its contents are split over columns.
+
+```{r}
+# Unnest wider
+planet_moons_list_df %>% 
+  unnest_longer(moons) %>% 
+  unnest_wider(moons) %>% 
+  unnest_wider(moon_data)
+```
+
+Use `dplyr`’s `slice_max()` function on moon radius to get a top 5 of biggest moons.
+
+```{r}
+# Top biggest moons
+planet_moons_list_df %>% 
+  unnest_longer(moons) %>% 
+  unnest_wider(moons) %>% 
+  unnest_wider(moon_data) %>% 
+  slice_max(radius, n = 5)
+```
+
+Well done! Jupiter has three moons in the top five with Ganymede being the largest overall. We also have Saturn’s Titan and our very own Moon. The more deeply nested your data is, the more iterations of `unnest_longer()` and `unnest_wider()` you’ll need to fully unnest it.
+
+
+#### **4.3 Selecting nested variables**
+**4.3.1 Hoisting Star Wars films**
+
+You’ve been given a nested data set on Star Wars characters (`character_df`) and want to explore the films in which they appeared. You’ll first use the `unnest_wider()` and `unnest_longer()` functions to explore the data and will then switch to `hoist()` to select a specific element in the nested data structure directly.
+
+Inspect `character_df` in the console.
+Unnest the `metadata` column.
+
+```{r}
+# Load data
+(character_df <- readRDS(here::here("datasets", "Star_Wars_data", "star_wars_characters.rds")))
+```
+
+```{r}
+# Unnest metadata
+character_df %>% 
+  unnest_wider(metadata) # Note the use of unnest_wider (unnest_auto also widens)
+```
+
+Unnest the films column.
+
+```{r}
+# Unnest films
+character_df %>% 
+  unnest_wider(metadata) %>% 
+  unnest_longer(films)
+```
+
+As an alternative approach, use `hoist()` to select the first film from the `films` list nested in the `metadata` column.
+
+```{r}
+character_df %>% 
+  hoist(metadata, first_film = list("films", 1))
+```
+
+**4.3.2 Hoisting movie ratings**
+
+You’ve written a script to scrape data on your favorite movies from the Open Movie DataBase API. Now you want to process the JSON data to extract the Rotten Tomatoes rating for each movie. You’ve been given a data frame named `movie_df` which holds the JSON respones for five movies. You’ll explore this data with `unnest_wider()` and `unnest_longer()` before switching to `hoist()`.
+
+Unnest the movie column.
+
+Dataset not available...
+
+#### **4.4 Nesting data for modeling**
+**4.4.1 Tidy model outputs with broom**
+
+You’re trying to predict a person’s weight based on their waist circumference and stature (height). To do so you’re using the US army body measurement dataset ANSUR II. The model has already been trained for you using this code:
+
+model <- lm(weight_kg ~ waist_circum_m + stature_m, data = ansur_df)
+
+You will use the `broom` package’s `glance()` and `tidy()` functions in the console to inspect model outputs in a tidy format.
+
+```{r}
+# Load data
+(model <- readRDS(here::here("datasets", "ANSUR", "ansur_weight_model.rds")))
+```
+
+```{r}
+# Tidy
+broom::tidy(model)
+```
+
+```{r}
+# Glance
+broom::glance(model)
+```
+
+**What is the R2 value?**
+
+0
+
+0.894 **<==**
+
+5.09
+
+**What is the standard error on the intercept?**
+
+-128.
+
+0.615
+
+1.25 **<==**
+
+Correct!
+
+**4.4.2 Nesting tibbles**
+
+You’re pre-processing the US army body measurement dataset ANSUR II to train multiple models in a single pipeline. You’ll experiment with the `nest()` function to create a list column with nested tibbles containing sub-sets of the data.
+
+Group the data by army branch and then nest it.
+
+```{r}
+# Load data
+(ansur_df <- readRDS(here::here("datasets", "ANSUR", "ANSUR_II.rds")))
+```
+
+The army branch is missing from this data, so let's only nest by sex
+
+```{r}
+# Group and nest
+ansur_df %>% 
+  group_by(sex) %>% 
+  nest()
+```
+
+**4.4.3 Modeling on nested data frames**
+
+You’ll be working on the US Army ANSUR II body measurement dataset (`ansur_df`). The goal is to nest the data for both sexes so that you can simultaneously train two linear models, one for each sex. These models will derive a person’s weight from their stature (height) and waist circumference. You’ll then unnest the data to inspect the model’s statistics produced by the `glance()` function from the `broom` package.
+
+Group the data by sex.
+Nest the data.
+Unnest the glanced column.
+
+```{r}
+# Fit models to nested data
+ansur_df %>% 
+  group_by(sex) %>% 
+  nest() %>%
+  mutate(
+    fit = map(data, ~lm(weight_kg ~ waist_circum_m + stature_m, data = .)),
+    glanced = map(fit, broom::glance)
+  ) 
+```
+
+```{r}
+# Unnest glanced to columns
+ansur_df %>% 
+  group_by(sex) %>% 
+  nest() %>%
+  mutate(
+    fit = map(data, ~lm(weight_kg ~ waist_circum_m + stature_m, data = .)),
+    glanced = map(fit, broom::glance)
+  ) %>% 
+  unnest(glanced)
+```
+
+Well done! You’ve trained multiple models and created tidy outputs in a single pipeline making it easy to compare them.
+
+Congratulations! You did it! You’re now able to reshape data in R using tidyr.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
