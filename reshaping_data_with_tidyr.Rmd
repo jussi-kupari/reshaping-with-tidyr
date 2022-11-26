@@ -1749,25 +1749,3 @@ ansur_df %>%
 Well done! You’ve trained multiple models and created tidy outputs in a single pipeline making it easy to compare them.
 
 Congratulations! You did it! You’re now able to reshape data in R using tidyr.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
