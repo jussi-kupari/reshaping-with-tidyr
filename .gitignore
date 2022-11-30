@@ -1,3 +1,6 @@
 *.html
 .Rhistory
 .Rproj.user
+renv
+principles-of-tidy-data.Rproj
+.Rprofile
