@@ -197,7 +197,8 @@ billboard3 %>% arrange(date, rank)
 After pivoting columns, the key column is sometimes a combination of multiple underlying variable names. This happens in the `tb` (tuberculosis) dataset, shown below. This dataset comes from the World Health Organisation, and records the counts of confirmed tuberculosis cases by `country`, `year`, and demographic group. The demographic groups are broken down by `sex` (m, f) and `age` (0-14, 15-25, 25-34, 35-44, 45-54, 55-64, unknown).
 
 ```{r}
-tb <- as_tibble(read.csv("tb.csv", stringsAsFactors = FALSE))
+tb <- 
+  as_tibble(read.csv(here::here("datasets", "tb.csv")))
 tb
 ```
 
@@ -242,7 +243,7 @@ tb %>% pivot_longer(
 The most complicated form of messy data occurs when variables are stored in both rows and columns. The code below loads daily weather data from the Global Historical Climatology Network for one weather station (MX17004) in Mexico for five months in 2010. 
 
 ```{r}
-weather <- as_tibble(read.csv("weather.csv", stringsAsFactors = FALSE))
+weather <- as_tibble(read.csv(here::here("datasets", "weather.csv")))
 weather
 ```
 
@@ -330,3 +331,5 @@ map_dfr(paths, read.csv, stringsAsFactors = FALSE, .id = "filename")
 ```
 
 Once you have a single table, you can perform additional tidying as needed. An example of this type of cleaning can be found at <https://github.com/hadley/data-baby-names> which takes 129 yearly baby name tables provided by the US Social Security Administration and combines them into a single file.
+
+A more complicated situation occurs when the dataset structure changes over time. For example, the datasets may contain different variables, the same variables with different names, different file formats, or different conventions for missing values. This may require you to tidy each file to individually (or, if you’re lucky, in small groups) and then combine them once tidied. An example of this type of tidying is illustrated in <https://github.com/hadley/data-fuel-economy>, which shows the tidying of epa fuel economy data for over 50,000 cars from 1978 to 2008. The raw data is available online, but each year is stored in a separate file and there are four major formats with many minor variations, making tidying this dataset a considerable challenge.
