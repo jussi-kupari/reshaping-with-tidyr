@@ -46,6 +46,7 @@ We'll start with `gh_users`, a list which contains information about six GitHub 
 
 ```{r}
 users <- tibble(user = gh_users)
+users
 ```
 
 This seems a bit counter-intuitive: why is the first step in making a list simpler to make it more complicated? But a data frame has a big advantage: it bundles together multiple vectors so that everything is tracked together in a single object.
@@ -116,6 +117,9 @@ repos %>%
 ```{r}
 chars <- tibble(char = got_chars)
 chars
+```
+
+```{r}
 chars2 <- chars %>% unnest_wider(char)
 chars2
 ```
@@ -304,6 +308,9 @@ discs %>%
   select(disc_id = id, artist) %>% 
   unnest_longer(artist) %>% 
   unnest_wider(artist)
+```
+
+```{r}
 discs %>% 
   hoist(basic_information, format = "formats") %>% 
   select(disc_id = id, format) %>% 
