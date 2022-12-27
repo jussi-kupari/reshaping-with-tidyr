@@ -26,7 +26,7 @@ library(cowplot)
 ```{r}
 # load netflix_durations.rds as netflix_df
 (netflix_df <-
-   readRDS(here::here("datasets", "Netflix_data", "netflix_duration.rds")))
+   readRDS(here::here("tidying", "datasets", "Netflix_data", "netflix_duration.rds")))
 ```
 
 ```{r}
@@ -83,7 +83,7 @@ Use the `head()` function to keep just the top six.
 
 ```{r}
 # Load netflix_series as tvshow_df
-(tvshow_df <- readRDS(here::here("datasets", "Netflix_data", "netflix_series.rds")))
+(tvshow_df <- readRDS(here::here("tidying", "datasets", "Netflix_data", "netflix_series.rds")))
 ```
 
 ```{r}
@@ -189,7 +189,7 @@ Spread the values in the director column over separate rows.
 
 ```{r}
 # Load data
-(director_df <- readRDS(here::here("datasets", "Netflix_data", "netflix_directors.rds")))
+(director_df <- readRDS(here::here("tidying", "datasets", "Netflix_data", "netflix_directors.rds")))
 ```
 
 ```{r}
@@ -283,12 +283,12 @@ in the Rpubs so I will use that later together with my other country data to cre
 
 ```{r}
 # Load nukes_1962.rds and inspect data
-(nukes_1962_df <- readRDS(here::here("datasets", "Nuclear_data", "nukes_1962.rds")))
+(nukes_1962_df <- readRDS(here::here("tidying", "datasets", "Nuclear_data", "nukes_1962.rds")))
 ```
 
 ```{r}
 # Load country_to_continent_df
-(country_to_continent_df <- readRDS(here::here("datasets", "Nuclear_data", "country_to_continent.rds")))
+(country_to_continent_df <- readRDS(here::here("tidying", "datasets", "Nuclear_data", "country_to_continent.rds")))
 ```
 
 ```{r}
@@ -362,7 +362,7 @@ You’ve been given a version of the Nuclear Explosion DataBase (NEDB) where cou
 
 ```{r}
 # Load nuke_wide_country.rds and inspect
-(nuke_df <- readRDS(here::here("datasets", "Nuclear_data", "nuke_wide_country.rds")))
+(nuke_df <- readRDS(here::here("tidying", "datasets", "Nuclear_data", "nuke_wide_country.rds")))
 ```
 
 ```{r}
@@ -406,7 +406,9 @@ You can see the Cold War nuclear arms race heat up in the sixties and then gradu
 ```{r}
 # Load REAL country_to_continent_df 
 (country_to_continent_real <-
-   readRDS(here::here("datasets", "Nuclear_data", "country_to_continent_df.rds"))
+   readRDS(
+     here::here("tidying", "datasets", "Nuclear_data", "country_to_continent_df.rds")
+     )
 )
 ```
 
@@ -468,7 +470,7 @@ read.csv(
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRpPo4a7Uj9jAtdmEC3p1YixmewdMQKKsKbuu3CoF4COKX7j-y0FpiRzxLGdaWVmb7mrvWOWEaph558/pub?gid=278516960&single=true&output=csv"
   )
 
-saveRDS(obesity_df, file = here::here("datasets", "obesity_df.rds"))
+saveRDS(obesity_df, file = here::here("tidying", "datasets", "obesity_df.rds"))
 ```
 
 ```{r}
@@ -515,7 +517,7 @@ Pivot all columns except `Bond` to a longer format and set the names of the newl
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vRpPo4a7Uj9jAtdmEC3p1YixmewdMQKKsKbuu3CoF4COKX7j-y0FpiRzxLGdaWVmb7mrvWOWEaph558/pub?gid=595802601&single=true&output=csv"
     ))
 
-saveRDS(bond_df, here::here("datasets", "bond_df.rds"))
+saveRDS(bond_df, here::here("tidying", "datasets", "bond_df.rds"))
 ```
 
 ```{r}
@@ -597,7 +599,7 @@ bird_df <-
   read.csv(
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi_yI_hSJxlAZpWoqIrp8F9b-g6PLT0snajIporAW2hw8beu90XVaoL_SgfmZ0NAmSRqJyHcCNghPO/pub?gid=1305911804&single=true&output=csv"
     )
-saveRDS(bird_df, file = here::here("datasets", "birds_df"))
+saveRDS(bird_df, file = here::here("tidying", "datasets", "birds_df"))
 ```
 
 ```{r}
@@ -661,7 +663,7 @@ Pivot `stock_df` so that the `integer` columns `year` and `week` are created fro
 
 ```{r}
 # Save data
-saveRDS(stock_df, file = here::here("datasets", "stock_df"))
+saveRDS(stock_df, file = here::here("tidying", "datasets", "stock_df"))
 ```
 
 ```{r}
@@ -729,7 +731,7 @@ The challenge is that in the column headers (`name_1`, `name_2`, `gender_1`, and
 
 ```{r}
 # Save dog data
-saveRDS(space_dogs_df, file = here::here("datasets", "space_dogs_df.rds"))
+saveRDS(space_dogs_df, file = here::here("tidying", "datasets", "space_dogs_df.rds"))
 ```
 
 ```{r}
@@ -870,7 +872,7 @@ Use the `pivot_wider()` function to extract column names from the `metric` colum
 
 ```{r}
 # Download and inspect data
-(planet_df <- readRDS(here::here("datasets", "Planet_data", "planet_metrics_long.rds")))
+(planet_df <- readRDS(here::here("tidying", "datasets", "Planet_data", "planet_metrics_long.rds")))
 ```
 
 ```{r}
@@ -920,7 +922,7 @@ Inspect `planet_df` in the console.
 
 ```{r}
 # Download and inspect data
-(planet_df <- readRDS(here::here("datasets", "Planet_data", "planet_metrics_wide.rds")))
+(planet_df <- readRDS(here::here("tidying", "datasets", "Planet_data", "planet_metrics_wide.rds")))
 ```
 
 Pivot the data so that planet names are put in a column named planet.
@@ -1019,7 +1021,7 @@ Perform a `right_join()` between `space_df` and `full_df` on the `year` and `spe
 
 ```{r}
 # Save data
-saveRDS(space_df, file = here::here("datasets", "space_df.rds"))
+saveRDS(space_df, file = here::here("tidying", "datasets", "space_df.rds"))
 ```
 
 ```{r}
@@ -1133,7 +1135,7 @@ Count the number of medals won per team and year.
 Note: Dataset seems to be wrong so I will just do something here
 
 ```{r}
-(medal_df <- readRDS("~/reshaping_data_with_tidyr/datasets/olympic_medals_top_10.rds"))
+(medal_df <- readRDS(here::here("tidying", "datasets", "olympic_medals_top_10.rds")))
 ```
 
 ```{r}
@@ -1202,7 +1204,9 @@ Complete the dataset so that for each country there is an observation of each da
 
 ```{r}
 # Load and inspect dataset
-(cumul_nukes_1962_df <- readRDS("~/reshaping_data_with_tidyr/datasets/Nuclear_data/nukes_1962.rds"))
+(cumul_nukes_1962_df <- 
+   readRDS(here::here("tidying", "datasets", "Nuclear_data", "nukes_1962.rds"))
+ )
 ```
 
 ```{r}
@@ -1280,7 +1284,7 @@ Use `ggplot()` to create a line plot with the medals_per_participant per year, c
 
 ```{r}
 # Save data
-saveRDS(medal_df, file = here::here("datasets", "medal_df.rds"))
+saveRDS(medal_df, file = here::here("tidying", "datasets", "medal_df.rds"))
 ```
 
 ```{r}
@@ -1324,7 +1328,7 @@ Pivot the infected and recovered columns to long format, the old column names sh
 
 ```{r}
 # Save data
-saveRDS(patient_df, file = here::here("datasets", "patient_df.rds"))
+saveRDS(patient_df, file = here::here("tidying", "datasets", "patient_df.rds"))
 ```
 
 ```{r}
@@ -1395,7 +1399,7 @@ Complete the time variable by using the `seq()` function to create a sequence be
 
 ```{r}
 # Save data
-saveRDS(sensor_df, file = here::here("datasets", "sensor_df.rds"))
+saveRDS(sensor_df, file = here::here("tidying", "datasets", "sensor_df.rds"))
 ```
 
 ```{r}
@@ -1476,7 +1480,7 @@ Create a `tibble` with a single column called `movie` out of the input `movie_li
 
 ```{r}
 # Load data
-movie_list <- readRDS(here::here("datasets", "Star_Wars_data", "star_wars_movie_list.rds"))
+movie_list <- readRDS(here::here("tidying", "datasets", "Star_Wars_data", "star_wars_movie_list.rds"))
 ```
 
 ```{r}
@@ -1498,7 +1502,7 @@ Re-create the tibble with a single column called `movie` out of `movie_planets_l
 ```{r}
 # Load data
 (movie_planets_list <- 
-   readRDS(here::here("datasets", "Star_Wars_data", "star_wars_movie_planet_list.rds")))
+   readRDS(here::here("tidying", "datasets", "Star_Wars_data", "star_wars_movie_planet_list.rds")))
 ```
 
 ```{r}
@@ -1568,7 +1572,7 @@ Unnest the `moons` column so that each moon gets an observation.
 
 ```{r}
 # Load data
-(planet_moons_list_df <- readRDS(here::here("datasets", "Planet_data", "planet_moons_list_df.rds")))
+(planet_moons_list_df <- readRDS(here::here("tidying", "datasets", "Planet_data", "planet_moons_list_df.rds")))
 ```
 
 ```{r}
@@ -1620,7 +1624,7 @@ Unnest the `metadata` column.
 
 ```{r}
 # Load data
-(character_df <- readRDS(here::here("datasets", "Star_Wars_data", "star_wars_characters.rds")))
+(character_df <- readRDS(here::here("tidying", "datasets", "Star_Wars_data", "star_wars_characters.rds")))
 ```
 
 ```{r}
@@ -1664,7 +1668,7 @@ You will use the `broom` package’s `glance()` and `tidy()` functions in the co
 
 ```{r}
 # Load data
-(model <- readRDS(here::here("datasets", "ANSUR", "ansur_weight_model.rds")))
+(model <- readRDS(here::here("tidying", "datasets", "ANSUR", "ansur_weight_model.rds")))
 ```
 
 ```{r}
@@ -1703,7 +1707,7 @@ Group the data by army branch and then nest it.
 
 ```{r}
 # Load data
-(ansur_df <- readRDS(here::here("datasets", "ANSUR", "ANSUR_II.rds")))
+(ansur_df <- readRDS(here::here("tidying", "datasets", "ANSUR", "ANSUR_II.rds")))
 ```
 
 The army branch is missing from this data, so let's only nest by sex
