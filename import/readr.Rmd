@@ -1,6 +1,13 @@
+---
+title: "Data processing in the Tidyverse - import"
+output: html_notebook
+---
+
+```{r}
 library(readr)
+```
 
-
+```{r}
 read_delim(
   "import/data/swiss.csv",
   col_types = cols(
@@ -10,48 +17,54 @@ read_delim(
     Catholic = "c"
   )
 )
+```
 
+
+```{r}
 read_delim(
   "import/data/swiss.csv",
   col_select = c("Agriculture", "Examination", "Education"),
   col_types = cols(
     Agriculture = "d",
     Examination = "i",
-    Education = "i")
+    Education = "i"
+    )
 )
+```
 
+```{r}
 read_delim(
   "import/data/swiss.csv",
   show_col_types = FALSE,
   col_select = Education:Catholic,
   n_max = 3
 )
+```
 
+```{r}
 read_delim("import/data/swiss.csv")
-
+```
+```{r}
 read_delim("import/data/swiss.csv", col_names = FALSE, show_col_types = FALSE)
+```
 
+```{r}
 read_delim(
   "https://basv53.uni.lu/lectures/data/example.csv", 
   col_names = c("animal", "color", "value"), 
   col_select = -color,
-  col_types = cols(value = "i")
+  col_types = cols(value = "i"
+                   )
   )
+```
 
+```{r}
 # Multiple files are read into one tibble
 read_delim("import/data/swiss.csv", "import/data/swiss.csv", delim = ",")
 read_csv("import/data/swiss.csv", "import/data/swiss.csv")
+```
 
+```{r}
 # Files with different columns are not read
 read_csv(c("import/data/swiss.csv", "import/data/swiss2.csv"))
-
-
-
-
-
-
-
-
-
-
-
+```
