@@ -49,6 +49,12 @@ read_tsv("data/data.tsv")
 ```
 
 ```{r}
+# Or use read_delim with delim = "\t"
+read_delim("data/data.tsv", delim = "\t")
+```
+
+
+```{r}
 # Compressed (.gz, .bz2, .xz, or .zip) files will be uncompressed by read_csv.
 read_csv("data/data.csv.gz", show_col_types = FALSE)
 ```
@@ -86,6 +92,7 @@ read_delim("data/data.csv", delim = ",")
 ```
 
 ```{r}
+# read_delim tries to guess the delimiter if not explicitly given
 read_delim("data/data.tsv")
 ```
 
@@ -182,16 +189,238 @@ read_csv(
  )
 ```
 ## Column Types 
+When read_csv parses a file, it infers the type of each column. This inference can be 
+slow, or worse the inference can be incorrect. If you know a priori what the types should 
+be, you can specify this using the col_types option.
 
+### String-Based Column Type Specification
 
+**Character Type**
 
+c Character
 
+i Integer
 
+n Number
 
+d Double
 
+l Logical
 
+f Factor
 
+D Date
 
+T Datetime
+
+t Time
+
+? Guess (default)
+
+_/- Skip the column
+
+```{r}
+# By default, read_csv guesses. This can be made explicit
+read_csv("data/data.csv", col_types = "????")
+```
+
+```{r}
+# This result can be made explicit with "dccd"
+read_csv("data/data.csv", col_types = "dccd")
+```
+
+```{r}
+# If you want an integer type for column A, you can use "iccd"
+read_csv("data/data.csv", col_types = "iccd")
+```
+
+```{r}
+# Column D can't be read as an <int> by read_csv. This will result in NAs
+read_csv("data/data.csv", col_types = "icci")
+```
+
+If you specify that a column should have type d, the numbers in the column must be 
+integers or decimal numbers. If you use the type n (the default that read_csv will guess), 
+you will also get doubles, but the latter type can handle strings that can be interpreted 
+as numbers such as dollar amounts, percentages, and group separators in numbers. The 
+column type n will ignore leading and trailing text and handle number separators
+
+```{r}
+# Type n can handle strings that can be interpreted as numbers, ignoring extra symbols
+read_csv(
+ 'A, B, C, D, E
+ $1,a,a,1.2%,"1,100,200"
+ $2,b,b,2.1%,"140,000"
+ $3,c,c,13.0%,"2,005,000"',
+ col_types ="nccnn"
+ )
+```
+
+```{r}
+# Use 'locale' to specify decimal and grouping indicators
+# See the ?locale documentation for more options.
+read_csv(
+ 'A, B, C, D, E
+ $1,a,a," 1,2%","1.100.200"
+ $2,b,b," 2,1%"," 140.000"
+ $3,c,c,"13,0%","2.005.000"',
+ locale = locale(decimal_mark = ",", grouping_mark = "."),
+ col_types ="nccnn")
+```
+
+```{r}
+# If a column only contains TRUE and FALSE (case doesn’t matter) type guess is <lgl>
+read_csv(
+ 'A, B, C, D
+ TRUE, a, a, 1.2
+ false, b, b, 2.1
+ true, c, c, 13',
+ show_col_types = FALSE
+)
+```
+
+```{r}
+# Numeric logical values [0, 1] can be interpreted explicitly
+read_csv(
+ 'A, B, C, D
+ 1, a, a, 1.2
+ 0, b, b, 2.1
+ 1, c, c, 13',
+ col_types ="lccn"
+)
+```
+
+```{r}
+# You can mix-and-match numeric and character logical values
+read_csv(
+ 'A, B, C, D
+ true, a, a, 1.2
+ 0, b, b, 2.1
+ 1, c, c, 13
+ FALSE, c, b, 14',
+ col_types ="lccn"
+)
+```
+
+```{r}
+# The D, t, and T types are for dates, time points, and datetime, in that order.
+read_csv(
+ 'D, T, t
+ "2018-08-23", "2018-08-23T14:30", 14:30',
+ col_types ="DTt"
+)
+```
+
+```{r}
+# You can use 'locale' to change how read_csv parses dates (D) and time (t).
+# Date and time formats can be specified using date_format and time_format.
+# For datetimes (T), we cannot specify the format using locale.
+read_csv(
+ 'D, t
+ "23 Oct 2018", 2pm',
+ col_types = "Dt",
+ locale = locale(
+ date_format = "%d %b %Y",
+ time_format = "%I%p"
+ )
+)
+```
+
+```{r}
+# If you want to create a factor type column, you use the "f" type specification.
+read_csv(
+  'A, B, C, D
+ 1, a, a, 1.2
+ 0, b, b, 2.1
+ 1, c, c, 13',
+ col_types = "lcfn"
+)
+```
+
+```{r}
+# To skip columns, use "_" or "-"
+read_csv("data/data.csv", col_types = "_cc-")
+```
+
+If you specify the column types using a string, you should specify the types of all 
+columns. If you only want to define the types of a subset of columns, you can use the 
+function cols() to specify types. You call this function with named parameters, where 
+the names are column names and the arguments are types.
+
+```{r}
+# Define only a subset of columns explicitly
+read_csv("data/data.csv", col_types = cols(A = "c", B = "f"))
+```
+### Function-Based Column Type Specification
+
+You can use longer type names that you specify using function calls. 
+These functions have names that start with col_, so you can use autocomplete to get 
+a list of them. The types you can specify using functions are the same as those you can 
+specify using characters, of course, and the functions are as follows:
+
+**Function Type**
+
+col_character() Character
+
+col_integer() Integer
+
+col_number() Number
+
+col_double() Double
+
+col_logical() Logical
+
+col_factor() Factor
+
+col_date() Date
+
+col_datetime() Datetime
+
+col_time() Time
+
+col_guess() Guess (default)
+
+col_skip() Skip the column
+
+```{r}
+# Wrap the function-based specifications to 'cols'
+read_csv(
+  "data/data.csv", 
+  col_types = cols(A = col_integer(), B = col_factor())
+  )
+```
+For factors, date, time, and datetime types, you have more control over the 
+format using the 'col_' functions. You can use arguments to these functions for specifying 
+how read_csv should parse dates and how it should construct factors.
+
+For factors, you can explicitly set the levels. If you do not, then the column parser 
+will set the levels in the order it sees the different strings in the column. 
+For example, in data/data.csv the strings in columns C and D are in the order a, b, and c:
+
+```{r}
+(my_data <-
+  read_csv(
+ file = "data/data.csv",
+ col_types = cols(C = col_factor())
+))
+my_data$C
+```
+
+```{r}
+# For a different order, we can give col_factor() a 'levels' or 'ordered' argument.
+(my_data <-
+  read_csv(
+ file = "data/data.csv",
+ col_types = cols(
+   A = col_factor(ordered = TRUE),
+   C = col_factor(levels = c("b", "c", "a"))
+   )
+  )
+)
+my_data$A
+my_data$C
+```
+### Parsing Time and Dates
 
 
 
