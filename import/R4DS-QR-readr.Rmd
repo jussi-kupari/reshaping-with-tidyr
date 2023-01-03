@@ -164,7 +164,7 @@ read_csv(
 
 ```{r}
 # You can have a full line comment, but it must start at the left edge
-# Here you will get a warning 
+# This will not work properly 
 read_csv(
  "A, B, C, D   
  # this is a comment that doesn't start from the very left
@@ -177,7 +177,7 @@ read_csv(
 ```
 
 ```{r}
-# This works without warnings 
+# This works 
 read_csv(
  "A, B, C, D   
 # full line comment starting from the very left
@@ -320,8 +320,8 @@ read_csv(
  "23 Oct 2018", 2pm',
  col_types = "Dt",
  locale = locale(
- date_format = "%d %b %Y",
- time_format = "%I%p"
+   date_format = "%d %b %Y",
+   time_format = "%I%p"
  )
 )
 ```
@@ -403,8 +403,12 @@ For example, in data/data.csv the strings in columns C and D are in the order a,
  file = "data/data.csv",
  col_types = cols(C = col_factor())
 ))
+```
+
+```{r}
 my_data$C
 ```
+
 
 ```{r}
 # For a different order, we can give col_factor() a 'levels' or 'ordered' argument.
@@ -417,10 +421,183 @@ my_data$C
    )
   )
 )
+```
+
+```{r}
 my_data$A
 my_data$C
 ```
+
 ### Parsing Time and Dates
+
+**Code Time format Example string Interpretation**
+
+%Y 4-digit year 1975 The year 1975
+
+%y 2-digit year5 75 Also the year 1975
+
+%m 2-digit month 02 February
+
+%b Abbreviated month name6 Feb February
+
+%B Full month name February February
+
+%d 2-digit day 15 The 15th of a month
+
+%H Hour number on a 24-hour clock 18 Six o’clock in the evening
+
+%I Hour number on a 12-hour clock7 6 pm 18:00 hours
+
+%p AM/PM indicator 6 pm 18:00 hours
+
+%M Two-digit minutes 18:30 Half past six
+
+%S Integer seconds 18:30:10 Ten seconds past 18:00
+
+%Z Time zone as name8 America/Chicago Central Time
+
+%z Time zone as offset from UTC “+0100” Central European Time
+
+
+**There are shortcuts for frequently used formats:**
+
+Shortcut Format
+
+%D %m/%d/%y
+
+%x %y/%m/%d
+
+%F %Y-%m-%d
+
+%R %H:%M
+
+%T %H:%M:%S
+
+
+### Parsin date, time and datetime
+
+```{r}
+# Time
+parse_time(c("18:00"), format = "%R")
+parse_time(c("18:00:30"), format = "%T")
+parse_time(c("6 pm"), format = "%I %p")
+parse_time(c("18"), format = "%R")
+```
+
+```{r}
+# Date
+parse_date(c("1975-02-05"), format = "%Y-%m-%d")
+parse_date(c("1975-02-05"))
+parse_date(c("75-02"), format = "%y-%m")
+```
+
+Dates written on the form 15/02/75 can mean both February 15, 1975, and May 2, 
+1975, depending on where you are in the world. Europe uses the sensible DD/MM/
+YY format, where the order goes from the smallest time unit, days, to the medium time 
+units, months, and then to years. In the United States, they use the MM/DD/YY format. 
+To get the 15th of February, you need one of these formats:
+
+```{r}
+parse_date(c("15/02/75"), format = "%d/%m/%y") # Europe
+parse_date(c("02/15/75"), format = "%m/%d/%y") # USA
+```
+
+Date specifications that only use numbers are not affected by the local language, but 
+if you include the name of months, they are. The name of months and their abbreviation 
+varies from language to language, obviously.
+
+```{r}
+# English and Danish
+parse_date(c("Feb 15 1975"), format = "%b %d %Y", locale = locale("en"))
+parse_date(c("15. feb. 1975"),format ="%d. %b %Y",locale =locale("da"))
+```
+
+“Datetimes” can be parsed using combinations of date and time strings. With these, 
+you also want to consider time zones. You can either specify that time zones are relative to UTC with %z or location based, with %Z if the time zone is given in the input, or you can use locale() if it is the same for all the input.
+
+If you specify a time zone based on a location, R will automatically adjust for 
+daylight saving time, but if you use dates relative to UTC, you will not—UTC does not 
+have daylight savings. Central European Time (CET) is “+0100” and with daylight saving 
+time “+0200”. US Pacific Time (PST) is “-0800”, but with daylight saving time (PDT), it is 
+“-0700”. When you switch back and forth between daylight savings is determined by your 
+location.
+
+```{r}
+# Datetime
+parse_datetime(c("Feb 15 1975 18:00 US/Pacific"), format = "%b %d %Y %R %Z")
+parse_datetime(c("Feb 15 1975 18:00 -0800"), format = "%b %d %Y %R %z")
+parse_datetime(c("Jun 15 1975 18:00 US/Pacific"), format ="%b %d %Y %R %Z")
+parse_datetime(c("Jun 15 1975 18:00 -0700"), format ="%b %d %Y %R %z")
+```
+
+If you use locale() to specify a time zone, you cannot use zones relative to UTC. The 
+point of using locale() is local formats, not time zones. The parser will still handle 
+daylight savings for you, however. These two are the same datetimes:
+
+```{r}
+parse_datetime(
+  c("Aug 15 1975 18:00"),
+  format = "%b %d %Y %R",
+  locale = locale(tz = "US/Pacific")
+  )
+```
+
+```{r}
+parse_datetime(
+ c("Aug 15 1975 18:00 US/Pacific"),
+ format ="%b %d %Y %R %Z"
+)
+```
+
+```{r}
+# The dates are equal even if printed differently
+parse_datetime(
+  c("Aug 15 1975 18:00"),
+  format = "%b %d %Y %R",
+  locale = locale(tz = "US/Pacific")
+  ) ==
+  parse_datetime(
+ c("Aug 15 1975 18:00 US/Pacific"),
+ format ="%b %d %Y %R %Z"
+)
+```
+
+### Space-Separated Columns
+
+The preceding functions all read delimiter-separated columns. They expect a single 
+character to separate one column from the next. If the argument trim_ws is true, they 
+ignore whitespace. This argument is true by default for read_csv, read_csv2, and read_
+tsv, but false for read_delim.
+
+The function read_table instead separates columns by one or more spaces. It takes 
+many of the same arguments as read_csv or read_tsv and mostly differs in what it 
+considers the column separator—this function uses whitespace instead of a specific 
+field separator such as a comma or a semicolon.
+
+```{r}
+read_table(
+  "A B C D
+ 1 2 3 4
+ 15 16 17 18"
+)
+```
+
+```{r}
+# Disable colnames
+read_table(
+  "A B C D
+ 1 2 3 4
+ 15 16 17 18",
+ col_names = FALSE
+)
+```
+
+
+
+
+
+
+
 
 
 
