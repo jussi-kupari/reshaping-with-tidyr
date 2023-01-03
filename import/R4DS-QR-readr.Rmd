@@ -591,18 +591,3 @@ read_table(
  col_names = FALSE
 )
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
