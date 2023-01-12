@@ -1,0 +1,155 @@
+---
+title: "R4DS-QuickRef -- Ch3 Representing Tables: tibble"
+output: html_notebook
+---
+
+```{r}
+library(tibble)
+```
+
+### Creating tibbles
+
+Tidyverse functions that create tabular data create tubbles rather than data frames.
+```{r}
+x <- readr::read_csv("../import/data/data.csv")
+```
+
+```{r}
+x
+```
+tibbles have several superclasses including "data.frame", meaning that you can most
+often use tibbles in place of data frames. But not always!
+```{r}
+class(x)
+```
+
+```{r}
+# Create a data frame from tibble
+(y <- as.data.frame(x))
+```
+
+```{r}
+# Create a tibble from a data frame
+(z <- tibble::as_tibble(y))
+```
+
+You can create a tibble from vectors using `tibble()`. If the tibble has more than
+20 lines you will see only the first 10. The second thing to notice is that you can 
+refer to previous columns when specifying later columns.
+```{r}
+(xx <- 
+   tibble(
+  x = 1:100,
+  y = x^2,
+  z = y^2
+   )
+)
+```
+
+You can also define a tibble one line per row with `tribble()´
+```{r}
+tribble(
+  ~x, ~y, ~z,
+  1, 1, 1,
+  2, 4, 16,
+  3,  9, 81
+)
+```
+
+Remember that ´readr::read_csv` can also be used to create tibbles from strings
+```{r}
+readr::read_csv(
+  "x, y, z
+  1, 1, 1
+  2, 4, 16
+  3, 9, 81
+  "
+)
+```
+
+### Indexing Tibbles
+
+```{r}
+(x <- readr::read_csv("../import/data/data.csv"))
+```
+
+```{r}
+(y <- as.data.frame(x))
+```
+Single-brackets extract a tibble or a df, respectively
+```{r}
+x["A"]
+```
+
+```{r}
+y["A"]
+```
+```{r}
+x[1]
+```
+
+```{r}
+y[1]
+```
+Double-brackets and $ extract a vector from both tibbles and data frames
+```{r}
+x[[1]]
+x$A
+y[[1]]
+y$A
+```
+
+More than one column with []
+```{r}
+x[c("A", "B")]
+x[c(1, 2)]
+y[2:3]
+y[c("B", "C")]
+```
+
+Extract a subset of the tibble using rows and columns
+```{r}
+x[1:2, 2:3]
+y[1:2, 2:3]
+```
+
+Subset of rows
+```{r}
+x[1:2, ]
+y[2:3, ]
+```
+
+Subset of columns
+```{r}
+x[, 2:3]
+y[, c("A", "C")]
+```
+
+If you extract a subset of rows from a single column, tibbles and data frames no 
+longer have the same behavior. A tibble will give you a tibble in return, while a data 
+frame will give you a vector:
+```{r}
+# Produces a tibble
+x[1:2, 2]
+```
+
+```{r}
+# Produces a vector
+y[1:2, 2]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
