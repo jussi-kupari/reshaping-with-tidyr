@@ -1,0 +1,326 @@
+---
+title: "R4DS-Quickref: Ch4 -- Tidy Select"
+output: html_notebook
+---
+
+So-called “tidy select” is not a package you would use on its own (although you can 
+import it and it is called tidyselect), rather it is a small language for selecting 
+columns in a data frame or tibble. We cannot, however, use the language without 
+functionality from packages, so I will use the function `select` (from the `dplyr` package)
+that helps you select columns from a tibble or a data frame.
+
+Overview of selection features
+
+Tidyverse selections implement a dialect of R where operators make it easy to select variables:
+
+    : for selecting a range of consecutive variables.
+
+    ! for taking the complement of a set of variables.
+
+    & and | for selecting the intersection or the union of two sets of variables.
+
+    c() for combining selections.
+
+In addition, you can use selection helpers. Some helpers select specific columns:
+
+    everything(): Matches all variables.
+
+    last_col(): Select last variable, possibly with an offset.
+
+These helpers select variables by matching patterns in their names:
+
+    starts_with(): Starts with a prefix.
+
+    ends_with(): Ends with a suffix.
+
+    contains(): Contains a literal string.
+
+    matches(): Matches a regular expression.
+
+    num_range(): Matches a numerical range like x01, x02, x03.
+
+These helpers select variables from a character vector:
+
+    all_of(): Matches variable names in a character vector. All names must be present, otherwise an out-of-bounds error is thrown.
+
+    any_of(): Same as all_of(), except that no error is thrown for names that don't exist.
+
+This helper selects variables with a function:
+
+    where(): Applies a function to all variables and selects those for which the function returns TRUE.
+
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+# Generate some data as a tibble
+(tbl <- 
+   tribble(
+     ~sample,~min_size,~max_size,~min_weight,~max_weight,
+     "foo",13,16,45.2,67.2,
+     "bar",12,17,83.1,102.5
+   )
+ )
+```
+
+### Basic Select
+```{r}
+# Simply select columns by name
+tbl %>% 
+  select(sample, min_size, min_weight)
+```
+
+```{r}
+# _You can also use 'c()' to combine wanted selection of columns
+tbl %>% 
+  select(c(sample, min_weight))
+```
+
+
+### Ranges
+
+```{r}
+# Select a range of contiguous columns using ':'
+tbl %>% 
+  select(min_size:max_weight)
+```
+
+```{r}
+# Select multiple contiguous ranges using ':'
+tbl %>% 
+  select(sample:min_size, min_weight:max_weight)
+```
+
+### Complements
+
+```{r}
+# You can negate your selection using a bang '!':
+tbl %>% 
+  select(!sample)
+```
+
+```{r}
+# Negating also works with ranges
+# Parens are optional but it might be better to use then when negating to avoid surprises
+tbl %>% 
+  select(!(min_size:max_weight))
+```
+
+```{r}
+tbl %>% 
+  select(min_size:max_weight)
+```
+
+```{r}
+# You can use '-' to negate too
+tbl %>% 
+  select(-sample)
+```
+
+```{r}
+# To use '-' for a range you have to close it in parentheses
+tbl %>% 
+  select(-(sample:min_weight))
+```
+
+```{r}
+# Note that this does not work with '!'
+tbl %>% 
+  select(min_size: max_weight, !min_size)
+```
+
+```{r}
+# But this does work using '-' but the order changes
+tbl %>% 
+  select(min_size: max_weight, -min_size)
+```
+
+```{r}
+# Select discontiguous columns using 'c()'
+tbl %>% 
+  select(c(min_size, max_weight))
+```
+
+```{r}
+# Negate previous selection using '-'
+tbl %>% 
+  select(-c(min_size, max_weight))
+```
+
+```{r}
+# Also wroks using '!'
+tbl %>% 
+  select(!c(min_size, max_weight))
+```
+
+### Unions and Intersections
+
+```{r}
+# It gets strange if you include the complements of columns and the columns themselves
+# IMO this does not work as it should
+tbl %>% 
+  select(sample, !(sample:min_size))
+```
+
+```{r}
+# I would prefer using '-' over '!'
+tbl %>% 
+  select(sample:max_weight, -(sample:min_size))
+```
+
+```{r}
+# Explicitly ask for intersections using '&'
+tbl %>% 
+  select(sample:min_weight & max_size:max_weight)
+
+```
+
+```{r}
+# Explicitly ask for unions using '|'
+tbl %>% 
+  select(sample:min_weight | max_size:max_weight)
+```
+
+```{r}
+# Comma also produces an union
+tbl %>% 
+  select(sample:min_weight, max_size:max_weight)
+```
+
+### Select Columns Based on Name
+```{r}
+# starts_with() selects columns that start with the given string
+tbl %>% 
+  select(starts_with("min"))
+```
+
+```{r}
+# Similarly, ends_with() can be used to select columns that end with the given string
+tbl %>% 
+  select(ends_with("weight"))
+```
+
+```{r}
+# Use contains() to select strings that contain the given string
+tbl %>% 
+  select(contains("_s"))
+```
+
+```{r}
+# The matches() function lets you select columns based on regular expressions
+tbl %>% 
+  select(matches(".*_.*"))
+```
+
+```{r}
+# You can negate the selections with '!'
+tbl %>% 
+  select(!contains("_s"))
+```
+
+```{r}
+# Or with '-'
+tbl %>% 
+  select(-contains("_s"))
+```
+
+
+### Everything
+```{r}
+# The function everything() select all columns. This can be useful in some cases
+# Here we override a previous negative selection (note that sample is now the last column)
+tbl %>% 
+  select(-sample, everything())
+```
+
+### Indexing from the Last Column
+
+```{r}
+# To select the last column, use last_col()
+tbl %>% 
+  select(last_col())
+```
+
+```{r}
+# But you can use last_col() to index from the right by giving an index
+# Here 0 gives you the last column
+tbl %>% 
+  select(last_col(0))
+```
+
+```{r}
+# But now you can index from right->left; however remember this is zero indexing now
+# This gives the fifth column from left (first column from right)
+tbl %>% 
+  select(last_col(4)) 
+```
+
+```{r}
+# You can also use last_col() in ranges
+tbl %>% 
+  select(last_col(3):last_col(2))
+```
+
+### Selecting from Strings
+```{r}
+# You can use the all_of() or any_of() functions to select with a vector of column names
+vars <- c("min_size", "min_weight")
+tbl %>% 
+  select(all_of(vars))
+```
+
+The difference between the two functions is that all_of() considers it an error if 
+vars contain a name that isn’t found in the table, while any_of() does not.
+
+```{r}
+# Any_of doesn't care if some of the columns are not there
+tbl %>% 
+  select(any_of(c(vars, "foo")))
+```
+
+```{r}
+# All_of cares
+tbl %>% 
+  select(all_of(c(vars, "foo")))
+```
+
+### Selecting Columns Based on Their Content
+
+Perhaps the most powerful selection function is where. You give it a function as an 
+argument, that function is called with each column, and the columns for which the 
+function returns TRUE are selected.
+```{r}
+# If you only want numeric columns
+tbl %>% 
+  select(where(is.numeric))
+```
+
+```{r}
+# Select numeric columns where the maximum value is over 100
+tbl %>% 
+  select(where(\(x) is.numeric(x) && max(x) > 100))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
