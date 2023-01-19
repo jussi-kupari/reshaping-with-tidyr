@@ -1,0 +1,279 @@
+---
+title: "R4DS-Quickref: Ch5 -- Reformatting tables: tidyr"
+output: html_notebook
+---
+
+```{r}
+library(tidyr)
+```
+
+### Tidy Data
+
+Each column is a single variable, each row is a single observation 
+
+Consider the data below:
+```{r}
+# Untidy data
+(mean_income <-
+   tribble(
+     ~country,~ '2001',~ '2002',~ '2003',~ '2004',~ '2005',
+     "Numenor", 123456, 132654, 321646, 324156, 325416,
+     "Westeros", 314256, 432165, 546123, 465321, 561423,
+     "Narnia", 432156, 342165, 564123, 543216, 465321,
+     "Gondor", 531426, 321465, 235461, 463521, 561423,
+     "Laputa", 14235, 34125, 45123, 51234, 54321
+   )
+)
+```
+
+### Pivoting
+```{r}
+(tidy_income <-
+   mean_income %>% 
+   pivot_longer(
+     cols = c(`2001`, `2001`, `2002`,
+              `2003`, `2004`, `2005`),
+     names_to = "year",
+     values_to = "income"
+   )
+ )
+```
+
+```{r}
+# Using : for choosing the columns works for contiguous cols
+mean_income %>% 
+  pivot_longer(
+    cols = `2001`:`2005`,
+    names_to = "year",
+    values_to = "income"
+  )
+```
+
+```{r}
+# Using negation
+mean_income %>% 
+  pivot_longer(
+    cols = -country,  # !country works too
+    names_to = "year",
+    values_to = "income"
+  )
+```
+
+Generally, you can combine pivot_longer() with all the tidy selection functions to 
+select columns, for example, you can use starts_with() or combine starts_with()
+and complement, !, or anything else the tidy selection language allows.
+
+```{r}
+# Another way of dropping 'country' from pivoting
+mean_income %>% 
+  pivot_longer(
+    cols = !starts_with("c"),
+    names_to = "year",
+    values_to = "income"
+  )
+```
+
+Note that the `year` column has type `<chr>` above. If we want to assign a different 
+type, we can use `names.transform`
+
+```{r}
+# Make 'year' as integer
+mean_income %>% 
+  pivot_longer(
+    cols = -country,
+    names_to = "year",
+    values_to = "income",
+    names_transform = as.integer
+  )
+```
+
+```{r}
+# 'year' as factor
+mean_income %>% 
+  pivot_longer(
+    cols = -country,
+    names_to = "year",
+    values_to = "income",
+    names_transform = as.factor
+  )
+```
+
+There is a similar `values_transform` argument if you need to transform the values 
+that go into the `values_to` column.
+
+```{r}
+# Make 'year' a factor and 'income' a character
+mean_income %>% 
+  pivot_longer(
+    cols = -country,
+    names_to = "year",
+    values_to = "income",
+    names_transform = as.factor,
+    values_transform = as.character,
+    value
+  )
+```
+
+Sometime you do need a non-tidy (wide) format. You can pivot a tidy dataset
+wider by using `pivot_wider`
+
+```{r}
+tidy_income
+```
+
+```{r}
+# Pivot wider
+tidy_income %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = income
+  )
+```
+
+### Complex Column Encodings
+
+The best representation of a date is, of course, a date object, 
+but for the sake of the example, let us say that we want to split a date into a day and a 
+month column. You can do this using the `separate()` function.
+
+```{r}
+# A table
+(tbl<-
+   tribble(
+     ~date,
+     "11/5",
+     "4/7",
+     "21/12"
+   )
+)
+```
+
+```{r}
+# Separate
+# Default is to drop the original column
+tbl %>% 
+  separate(
+    date, 
+    into = c("day", "month"),
+    sep = "/" # The default sep is any non-alphanumerical character
+  )
+```
+
+
+```{r}
+# Default separator is any non-alphanumeric character
+tbl %>% 
+  separate(
+    date, 
+    into = c("day", "month")
+  )
+```
+
+```{r}
+# Keep original column
+# Note that all columns are <chr>
+tbl %>% 
+  separate(
+    date,
+    into = c("day", "month"),
+    sep = "/",
+    remove = FALSE
+  )
+```
+
+```{r}
+# Convert new columns to more appropriate type
+tbl %>% 
+  separate(
+    date,
+    into = c("day", "month"),
+    sep = "/",
+    remove = FALSE,
+    convert = TRUE
+  )
+```
+The reverse of separating is uniting
+
+```{r}
+# First we separate
+(tbl2 <-
+   tbl %>% 
+   separate(
+     date,
+     into = c("day", "month"),
+     sep = "/",
+     remove = FALSE,
+     convert = TRUE
+   )
+)
+```
+
+```{r}
+# Then we unite
+# Default separator will be "_"
+tbl2 %>% 
+  unite(
+    date2, day:month
+  )
+```
+
+```{r}
+# Better like this
+tbl2 %>% unite(date, day:month, sep = "/")
+```
+```{r}
+# Set remove = FALSE, if you want to keep the original columns
+tbl2 %>% unite(date, day:month, sep = "/", remove = FALSE)
+```
+Columns that contain more than one value do not always contain the same number 
+of values. For example, we could have data such as the number of casualties per major 
+group in WW1 and WW2.
+
+```{r}
+# WWI WWII casualities
+(military_casualties <-
+  tribble(
+    ~war,~groups,~deaths,
+    'WW1',
+    "Allied Powers/Central Powers",
+    "5.7,4.0",
+    'WW2',
+    "Germany/Japan/USSR/British Empire/USA",
+    "5.3,2.1,10.7,0.6,0.4"
+  )
+ )
+```
+
+The groupings were not the same in the two wars, so we cannot split the data into 
+different columns. We can, however, divide it into more rows using `separate_rows()`.
+```{r}
+# separate rows
+military_casualties %>% 
+  separate_rows(
+    c(groups, deaths),
+    sep = "/|," # / OR ,
+  )
+```
+```{r}
+# Convers deaths to double
+military_casualties %>% 
+  separate_rows(
+    c(groups, deaths),
+    sep = "/|,",          # / OR ,
+    convert = TRUE
+  )
+```
+
+### Expanding, Crossing, and Completing
+
+
+
+
+
+
+
+
+
+
+
+
