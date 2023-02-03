@@ -4,7 +4,7 @@ output: html_notebook
 ---
 
 ```{r}
-library(tidyr)
+library(tidyverse)
 ```
 
 ### Tidy Data
@@ -67,7 +67,7 @@ and complement, !, or anything else the tidy selection language allows.
 # Another way of dropping 'country' from pivoting
 mean_income %>% 
   pivot_longer(
-    cols = !starts_with("c"),
+    cols = !starts_with("c"), # or, -starts_with("c") 
     names_to = "year",
     values_to = "income"
   )
@@ -109,12 +109,11 @@ mean_income %>%
     names_to = "year",
     values_to = "income",
     names_transform = as.factor,
-    values_transform = as.character,
-    value
+    values_transform = as.character
   )
 ```
 
-Sometime you do need a non-tidy (wide) format. You can pivot a tidy dataset
+Sometimes you do need a non-tidy (wide) format. You can pivot a tidy dataset
 wider by using `pivot_wider`
 
 ```{r}
@@ -155,7 +154,7 @@ tbl %>%
   separate(
     date, 
     into = c("day", "month"),
-    sep = "/" # The default sep is any non-alphanumerical character
+    sep = "/" 
   )
 ```
 
@@ -211,10 +210,7 @@ The reverse of separating is uniting
 ```{r}
 # Then we unite
 # Default separator will be "_"
-tbl2 %>% 
-  unite(
-    date2, day:month
-  )
+tbl2 %>% unite(date2, day:month)
 ```
 
 ```{r}
@@ -266,14 +262,185 @@ military_casualties %>%
 
 ### Expanding, Crossing, and Completing
 
+You can use `expand()` to get all the combinations of values, even the ones
+that are missing from the data.
 
+```{r}
+# Generate data
+(tbl <- 
+   tribble(
+     ~A,~B,~C,
+     1,11,21,
+     2,11,22,
+     4,13,32
+   )
+)
+```
 
+```{r}
+# Expand to all possible combinations of A, and B
+tbl %>% expand(A, B)
+```
 
+```{r}
+# You can also give a vector of values
+tbl %>% expand(A = 1:4, B)
+```
 
+```{r}
+# If you have vectors of values you want to combine this way, you can also use the crossing().
+crossing(A = 1:4, B = 11:13)
+```
 
+```{r}
+# If you only want the combinations found in the data, combine expand() with nesting()
+(tbl <- 
+   tribble(
+     ~A, ~B, ~C,
+     1, 11, 21,
+     2, 11, 22,
+     2, 11, 12,
+     4, 13, 42,
+     4, 13, 32
+   )
+ )
+```
 
+```{r}
+tbl %>% expand(nesting(A, B))
+```
 
+```{r}
+# If you need all combinations in a data frame, but accept missing values for those 
+# that are not present, you can use the complete() function.
 
+tbl %>% complete(A = 1:4)
+```
 
+```{r}
+tbl %>% complete(B = 11:13)
+```
 
+```{r}
+tbl %>% complete(A = 1:4, B = 11:13)
+```
 
+### Missing Values
+```{r}
+(mean_income <- 
+   tribble(
+     ~country, ~`2002`, ~`2003`, ~`2004`, ~`2005`,
+     "Numenor", 123456, 132654, NA, 324156,
+     "Westeros", 314256, NA, NA, 465321,
+     "Narnia", 432156, NA, NA, NA,
+     "Gondor", 531426, 321465, 235461, 463521,
+     "Laputa", 14235, 34125, 45123, 51234,
+   )
+)
+```
+
+```{r}
+# The simplest way to handle missing values is to get rid of it.
+mean_income %>%
+  pivot_longer(
+    -country, 
+    names_to = "year", 
+    values_to = "income"
+    ) 
+```
+
+In this example, we lose a country entirely if we have missing data for a single year. 
+This is unlikely to be acceptable and is another good argument for tidy data. If we 
+reformat the table and drop missing values, we will only remove the observations where 
+the income is missing for a given year.
+```{r}
+# The simplest way to handle missing values is to get rid of it.
+mean_income %>%
+  pivot_longer(
+    -country, 
+    names_to = "year", 
+    values_to = "income"
+    ) %>% 
+  drop_na(income)
+```
+
+Sometimes, you can replace missing data with some appropriate data. For example, 
+we could replace missing data in the mean_income table by setting each value to the 
+mean of its column. The replace_na() function does this. 
+```{r}
+mean_income %>%
+  pivot_longer(
+    -country, 
+    names_to = "year", 
+    values_to = "income"
+    ) %>% 
+  replace_na(list(income = 0)) # Note, 0 is not a good replacement here, just an example!
+```
+
+A final function for managing missing data is the fill() function. It replaces missing 
+values with the value above them in their column (or below them if you set the argument 
+.direction to "up".
+
+```{r}
+# Generate some data
+(tbl <- 
+   read_csv(
+     "year, quarter, income
+ 2011, Q1, 13
+ , Q2, 12
+ , Q3, 14
+ , Q4, 11
+ 2012, Q1, 12
+ , Q2, 14
+ , Q3, 15
+ , Q4, 17",
+ show_col_types = FALSE
+   )
+)
+```
+
+```{r}
+# Fill downwanrds (default)
+tbl %>% fill(year)
+```
+
+```{r}
+# See what happens when we fill upwards
+tbl %>% fill(year, .direction = "up")
+```
+
+### Nesting Data
+
+A tibble entry usually contains simple data, such as numbers or strings, but it 
+can also hold complex data, such as other tables. Consider this table:
+
+```{r}
+(tbl<-
+   tribble(
+     ~A,~B,~C,
+     1,11,21,
+     1,11,12,
+     2,42,22,
+     2,15,22,
+     2,15,32,
+     4,13,32
+   )
+ )
+```
+
+From this table, we can create one that, for each value in the A column, contains a 
+table of B and C for that A value.
+```{r}
+# Create a list-column of B and C
+(nested_tbl <-
+  tbl %>%
+  nest(BC = c(B, C))
+ )
+```
+You can do the reverse operation with `unnest()`
+```{r}
+# Unnest list-column
+nested_tbl %>% unnest()
+```
+
+Nesting is not a typical operation in data analysis, but it is there if you need it.
