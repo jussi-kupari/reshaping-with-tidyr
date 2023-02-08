@@ -1,0 +1,218 @@
+---
+title: "R4DS-Quickref: Ch6 -- Pipelines: magrittr"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+### Pipeline Notation
+
+x %>% f() %>% g() %>% h()
+
+or
+
+x |> f() |> g() |> h()
+
+is equivalent to
+
+h(g(f(x)))
+
+So, by the way, is
+
+x %>% f %>% g %>% h
+
+but not
+
+x |> f |> g |> h
+
+The native operator needs to have a function call, f(), on the right-hand side of the 
+operator, while the magrittr will accept either a function call, f(), or just a function 
+name, x %>% f. You can also give %>% an anonymous function:
+
+```{r}
+# You must put the lambda-fn in parentheses with both %>%  and |>
+"hello, "%>% (\(y) paste(y, "world!"))
+```
+
+but |> still needs a function call, so if you give it an anonymous function, you must 
+call the function as well as add () after the function definition).
+
+```{r}
+# with |> you have to call the function at the end with ()
+"hello, "|> (\(y) paste(y, "world!")) () 
+```
+
+With the %>% operator, you do not need the parentheses for the function calls, but 
+most prefer them to make it clear that we are dealing with functions, and the syntax is 
+then still valid if you change the code to the |> operator. Also, if your functions take more 
+than one argument, parentheses are needed, so if you always include them, it gives you a 
+consistent notation.
+
+### Pipelines and Function Arguments
+
+With the magrittr operator, %>%, but not the |> operator, you can change the default 
+input position using the special variable . (dot). If the right-hand side expression has . 
+as a parameter, then that is where the left-hand side value goes.
+
+```{r}
+# You can use a dot more than once on the right-hand side:
+rnorm(5) %>% tibble(x = ., y = .)
+```
+
+
+```{r}
+# You can also use it in nested function calls.
+rnorm(5) %>% tibble(x = ., y = abs(.))
+```
+
+```{r}
+# If the dot is only found in nested function calls, however, magrittr will still add it as 
+# the first argument to the right-hand side function.
+rnorm(5) %>% tibble(x = sin(.), y = abs(.))
+```
+
+```{r}
+# You can avoid this by putting the rhs expression in curly brackets
+rnorm(5) %>% {tibble(x = sin(.), y = abs(.))}
+```
+
+In general, you can put expressions in curly brackets as the right-hand side of a pipe 
+operator and have magrittr evaluate them. Think of it as a way to write one-parameter 
+anonymous functions. The input variable is the dot, and the expression inside the curly 
+brackets is the body of the function.
+
+### Function Composition
+
+Many functional programming languages encourage you to write functions by 
+combining other functions and have operators for that. It is not frequently done in R, 
+and while you can implement function composition, there is no built-in operator. The 
+magrittr package, however, gives you this syntax:
+
+h <- . %>% f() %>% g()
+
+This defines the function h, such that h(x) = g(f(x)).
+If we take the tidy-then-clean pipeline we saw earlier, and imagine that we need to 
+do the same for several input files, we can define a pipeline function for this as
+```{r}
+# Compose function pipeline
+pipeline <- 
+  . %>%
+ pivot_longer(
+   names_to = "year", 
+   values_to = "mean_income", 
+   !country) %>%
+ drop_na()
+
+pipeline
+```
+
+
+Note that purrr has a `compose()` function to, well, compose functions. This can 
+be combined with `partial()`.
+
+```{r}
+# Basic composition goes left<-right
+fn <- 
+  compose(
+    \(x) paste(x, "foo"), 
+    \(x) paste(x, "bar")
+  )
+
+fn("input")
+```
+
+```{r}
+# Change direction with .dir 
+fn2 <- 
+  compose(
+    \(x) paste(x, "foo"), 
+    \(x) paste(x, "bar"), 
+    .dir = "forward"
+  )
+
+fn2("input")
+```
+
+```{r}
+# Create partial functions with set parameters
+# Changing the order of arguments if quite funky
+
+add_foo1 <- partial(paste, "foo") # Default, partialised arguments first
+add_foo2 <- partial(paste, ... =, "foo") # Partialised arguments last
+
+add_foo1("bar")  
+add_foo2("bar")
+```
+
+
+```{r}
+# Using compose() with partial()
+add_foo <- partial(paste, ... =, "foo")
+add_bar <- partial(paste, ... =, "bar")
+
+fn3 <- compose(add_foo, add_bar)
+fn4 <- compose(add_foo, add_bar, .dir = "forward")
+
+fn3("input")
+fn4("input")
+```
+
+### Other Pipe Operations
+There are three other pipe operators in magrittr. These are not imported when you 
+import the tidyverse package, so to get access to them, you have to import magrittr
+explicitly.
+
+```{r}
+library(magrittr)
+```
+`%<>%` is the assignment pipe. This reassignment operator behaves similarly to the stepwise pipeline convention we considered at the start of the chapter, but it makes explicit that we are updating an 
+existing variable. You cannot accidentally assign the result to a different variable. 
+```{r}
+# These two are equivalent
+(my_letters <- letters[1:5])
+my_letters <- my_letters %>% toupper()
+my_letters
+
+(my_other_letters <- letters[6:10])
+my_other_letters %<>% toupper()
+my_other_letters
+```
+
+If your right-hand side is an expression in curly brackets, you can refer to the input 
+through the dot variable:
+```{r}
+(mydata <- tibble(x = rnorm(5), y = rnorm(5)))
+```
+```{r}
+mydata %>% { .$x - .$y }
+```
+
+If, as here, the input is a data frame and you want to access its columns, you need the 
+notation .$ to access them. The `%$%` pipe operator opens the data frame for you so you 
+can refer to the columns by name.
+
+```{r}
+mydata %$% { x - y } 
+```
+
+The tee pipe operator, `%T>%`, behaves like the regular pipe operator, %>%, except that it 
+returns its input rather than the result of calling the function on its right-hand side. The 
+regular pipe operation x %>% f() will return f(x), but the tee pipe operation x %T>% 
+f() will call f(x) but return x. This is useful for calling functions with side effects as a 
+step inside a pipeline, such as saving intermediate results to files or plotting data.
+
+If you call a function in a usual pipeline, you will pass the result of the function call 
+on to the next function in the pipeline. If you, for example, want to plot intermediate 
+data, you might not be so lucky that the plotting function will return the data. The 
+ggplot2 functions will not. If you want to plot intermediate values, you need to save 
+the data in a variable, save it, and then start a new pipeline with the data as input.
+
+```{r}
+# Using %T>% to print at the middle of the pipeline 
+iris %T>% 
+  { select(., Sepal.Length) %>% print(head) } %>%  # Print to screen and then continue with pipeline
+  pull(Species) %>% 
+  toupper()
+```
