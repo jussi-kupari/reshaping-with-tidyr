@@ -3,13 +3,18 @@ title: "R4DS-Quickref: Ch7 -- Functional Programming: purrr"
 output: html_notebook
 ---
 
+```{r}
+library(tidyverse)
+library(magrittr)
+```
+
+
 ### Filtering
 
 One of the most straightforward functional programming patterns is filtering. Here, 
 you use a high-order filter function. This function takes a predicate function, that is, a 
 function that returns a logical value, and then returns all elements where the predicate 
-evaluates to TRUE or all elements where the predicate evaluates to 
-FALSE.
+evaluates to TRUE or all elements where the predicate evaluates to FALSE.
 
 ```{r}
 # Keep even numbers only
@@ -83,3 +88,357 @@ z %>% compact(names)
 ```
 
 ### Mapping
+
+Mapping a function, f, over sequences x = x1, x2, …, xn returns a new sequence of the 
+same length as the input but where each element is an application of the function: f(x1), 
+f(x2), …, f(xn).
+
+The function map() does this and returns a list as output. Lists are the generic 
+sequence data structure in R since they can hold all types of R objects.
+
+```{r}
+# Compare the output of using plain is_even() on the vector and then using map().
+# Mapping returns a list
+1:4 %>% is_even()
+1:4 %>% map(is_even)
+```
+
+Often, we want to work with vectors of specific types. For all the atomic types, purrr
+has a specific mapping function. The function for logical values is named map_lgl().
+
+```{r}
+# map_lgl() returns a logical vector, like plain is_even()
+1:4 %>% is_even()
+1:4 %>% map_lgl(is_even)
+```
+
+With something as simple as this example, you should not use purrr. Vector 
+expressions are faster and easier to use.
+
+You cannot always use vector expressions, however. Say you have a list of vectors like below:
+
+```{r}
+# A list of vectors
+my_list <- list(1:5, 200:540, 5:60)
+```
+
+```{r}
+# This does not give the lengths of individual vectors in the list
+my_list %>% length()
+```
+
+```{r}
+# This does
+my_list %>% map(length)
+```
+
+```{r}
+# If you want it as a integer vector, you can use map_int()
+my_list %>% map_int(length)
+```
+
+There are many versions of `map_*()`
+
+map(.x, .f, ..., .progress = FALSE)
+
+map_lgl(.x, .f, ..., .progress = FALSE)
+
+map_int(.x, .f, ..., .progress = FALSE)
+
+map_dbl(.x, .f, ..., .progress = FALSE)
+
+map_chr(.x, .f, ..., .progress = FALSE)
+
+map_vec(.x, .f, ..., .ptype = NULL, .progress = FALSE)
+
+walk(.x, .f, ..., .progress = FALSE)
+
+```{r}
+# identity() is trivial identity function returning its argument. 
+1:3 %>% map_dbl(identity) %T>% print() %>% class() 
+```
+
+```{r}
+1:3 %>% map_int(identity) %T>% print() %>% class() 
+```
+
+```{r}
+1:3 %>% map_chr(identity) %T>% print() %>% class() 
+```
+
+The different map functions will give you an error if the function you apply does not 
+return values of the type the function should. Sometimes, a map function will do type 
+conversion, as before, but not always. It will usually be happy to convert in a direction 
+that doesn’t lose information, for example, from logical to integer and integer to double, 
+but not in the other direction.
+
+!! NOTE THE `map_df*()` functions below have been deprecated See further below how to do this now !!
+The `map_dfr()` and `map_dfc()` functions return data frames (tibbles). The `map_df()` function does the same as `map_dfr()`.
+
+```{r}
+# map_dfr and map_df bind the output by rows
+x <- tibble(a = 1:2, b = 3:4)
+list(a = x, b = x) %>%  map_df(identity)
+```
+
+```{r}
+# map_dfc binds the output by cols
+list(a = x, b = x) %>%  map_dfc(identity)
+```
+
+The suggested method to do the above procedures is using `map()` and `list_rbind()` or `list_cbind()`
+
+```{r}
+# Bind output data frames by rows
+x <- tibble(a = 1:2, b = 3:4)
+list(a = x, b = x) %>%  
+  map(identity) %>% 
+  list_rbind()
+```
+
+```{r}
+# dplyr's bind_rows() also seems to give the same output
+list(a = x, b = x) %>%  
+  map(identity) %>% 
+  bind_rows()
+```
+
+
+```{r}
+# Bind output by cols
+list(a = x, b = x) %>%  
+  map(identity) %>% 
+  list_cbind()
+```
+
+
+
+```{r}
+# With bond_cols()
+list(a = x, b = x) %>%  
+  map(identity) %>% 
+  bind_cols() 
+```
+
+If the items you map over are sequences themselves, you can extract elements by 
+index; you do not need to provide a function to the map function.
+
+The three below give the same result:
+```{r}
+# Extract by index only using map()
+list(1:3, 4:6) %>% 
+   map_dbl(1)
+
+list(1:3, 4:6) %>% 
+   map_dbl(3)
+```
+
+```{r}
+# Use pluck() together with map()
+# Pluck is mostly used for digging deeper into nested lists
+list(1:3, 4:6) %>% 
+   map_dbl(pluck(1))
+```
+
+```{r}
+# Map `[[` to extract element
+list(1:3, 4:6) %>% 
+  map_dbl(`[[`, 1 )
+```
+
+If the items have names, you can also extract values using these.
+
+```{r}
+# Use names to extract
+x <- list(
+  c(a = 42, b = 13),
+  c(a = 24, b = 31)
+)
+
+x %>% map_dbl("a")
+
+x %>% map_dbl(pluck("b"))
+
+x %>% map_dbl(`[[`, "a")
+```
+
+This is mostly used when you map over data frames.
+
+```{r}
+a <- tibble(foo = 1:3, bar = 11:13)
+b <- tibble(foo = 4:6, bar = 14:16)
+ab <- list(a = a, b = b)
+```
+
+```{r}
+ab %>% map("foo")
+```
+
+You can use `pluck()` to extract from deeper levels
+```{r}
+# Make a combo list for demo
+my_list <- list(a = iris, b = mtcars)
+```
+
+```{r}
+# First is just the top level list elements
+my_list %>% pluck(1)
+my_list %>% pluck(2)
+```
+
+```{r}
+# Second level is the columns in the individual element data.frames
+my_list %>% pluck(1, 2)
+my_list %>% pluck(2, 2)
+```
+
+```{r}
+# Third level is the individual elements in the data frame vectors
+my_list %>% pluck(1, 2, 5)
+my_list %>% pluck(2, 2, 5)
+```
+
+```{r}
+# Using map_dbl to extract the fifth element of the second column in both data frames
+my_list %>% 
+  map_dbl(\(.x) pluck(.x, 2, 5))
+```
+
+Related to extracting elements with pluck, you can apply functions to different 
+depths of the input using map_depth(). As with pluck, depth zero is the list itself, 
+so mapping over this depth is the same as applying the function directly on the input.
+
+Depth 1 gives us each element in the sequence, so this behaves like a normal map. 
+Depth 2 provides us with a map over the nested elements. Consider `my_list` (a = iris, b = mtcars). 
+The top level, depth 0, is the list. Depth 1 is the data frames `iris` and `mtcars`. 
+Depth 2 is the columns in these data frames. Depth 3 is the individual items in these columns.
+
+    map_depth(x, 0, fun) is equivalent to fun(x).
+
+    map_depth(x, 1, fun) is equivalent to x <- map(x, fun)
+
+    map_depth(x, 2, fun) is equivalent to x <- map(x, \(y) map(y, fun))
+
+
+```{r}
+# map_depth(x, 0, fun) is equivalent to fun(x).
+map_depth(my_list, 0, names)
+map_depth(my_list, 0, length)
+
+names(my_list)
+length(my_list)
+```
+
+```{r}
+# map_depth(x, 1, fun) is equivalent to map(x, fun)
+map_depth(my_list, 1, names)
+map_depth(my_list, 1, length)
+
+map(my_list, names)
+map(my_list, length)
+```
+
+```{r}
+# NOTE! map_depth(x, 2, fun) throws an error where map(x, \(y) map(y, fun)) works
+# map_depth(x, 2, fun) is equivalent to map(x, \(y) map(y, fun))
+# map_depth(my_list, 2, identity)
+
+map(my_list, \(.x) map(.x, length))
+# map_depth(my_list, 2, length) <- ERROR
+```
+
+If you only want to apply a function to some of the elements, you can use `map_if()`. 
+It takes a predicate and a function and applies the function to those elements where the 
+predicate is true. It returns a list, but you can convert it if you want another type.
+
+```{r}
+is_even <- function(x) x %% 2 == 0
+add_one <- function(x) x + 1
+```
+
+```{r}
+# Map function based on predicate. Returns a list 
+map_if(1:10, is_even, add_one)
+```
+
+```{r}
+# Return a numeric vector with extra step
+map_if(1:10, is_even, add_one) %>% as.numeric()
+```
+
+Using modify_if() instead of map_if() automatically returns a similar object with modification
+
+```{r}
+# Return a numeric vector using modify_if()
+modify_if(1:10, is_even, add_one)
+```
+
+
+With `map_if()` and `modify_if()`, you keep all elements, but the function is only applied to some 
+of them. If you want to apply one function to the elements where the predicate is 
+true and another to the elements where it is false, you can prove a function to the `.else` element:
+
+```{r}
+# Use .else = TRUE, to apply another function on elements that return FALSE
+add_two <- function(x) x + 2
+
+1:6  %>% 
+ map_if(is_even, add_one, .else = add_two)  %>% 
+ as.numeric()
+
+# With modify_if
+1:6 %>% modify_if(is_even, add_one, .else = add_two)
+```
+
+If you know which indices you want to apply the function to, instead of a predicate 
+they must satisfy, you can use `map_at()`. This function takes a sequence of indices 
+instead of the predicate but otherwise works the same as `map_if()`.
+
+```{r}
+# map_at and modify_at
+1:6 %>%  map_at(2:5, add_one) %>%  as.numeric()
+1:6 %>%  modify_at(2:5, add_one)
+```
+
+If you map over a list, x, then your function will be called with the elements in the 
+list, x[[i]]. If you want to get the elements wrapped in a length-one list, that is, use 
+indexing x[i], you can use lmap().
+
+CONTINUE!!!!
+
+Study lmap
+https://www.r-bloggers.com/2015/10/using-purrr-with-dplyr/
+
+```{r}
+list(a = 1:3, b = 4:6) %>%  map(print) %>% invisible()
+```
+
+```{r}
+list(a = 1:3, b = 4:6) %>% lmap(print) %>% invisible()
+```
+
+The function you apply must always return a list, and lmap() will concatenate them.
+
+```{r}
+# This just returns the string "foo" inside a list
+f <- function(x) list("foo")
+```
+
+```{r}
+1:2 %>% lmap(f)
+```
+
+```{r}
+f <- function(x) list("foo", "bar")
+1:2 %>% lmap(f)
+```
+
+
+
+
+
+
+
+
+
+
