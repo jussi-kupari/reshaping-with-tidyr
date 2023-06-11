@@ -21,7 +21,7 @@ read_delim() General column delimiters
 
 read_table() Space-separated values (fixed-length columns)
 
-read_table2() Space-separated values (variable-length columns)
+read_fwf() Fixed-width-files
 
 ```{r}
 # basic usage of read_csv
@@ -84,7 +84,7 @@ show_col_types = FALSE
 ```{r}
 # You can use read_delim as a general import function
 # You can give it the delimiter, or let it guess
-read_delim("data/data.csv")
+read_delim("data/data.csv.gz")
 ```
 
 ```{r}
@@ -329,7 +329,7 @@ read_csv(
 ```{r}
 # If you want to create a factor type column, you use the "f" type specification.
 read_csv(
-  'A, B, C, D
+'A, B, C, D
  1, a, a, 1.2
  0, b, b, 2.1
  1, c, c, 13',
@@ -403,6 +403,22 @@ For example, in data/data.csv the strings in columns C and D are in the order a,
  file = "data/data.csv",
  col_types = cols(C = col_factor())
 ))
+```
+
+```{r}
+my_data$C
+```
+
+```{r}
+my_data <-
+  read_csv(
+  'A, B, C
+ Foo, 12.4, Medium
+ Bar, 5.2, Small
+ Baz, 42.0, Large',
+ col_types = cols(
+   C = col_factor(levels = c("Small", "Medium", "Large")
+   )))
 ```
 
 ```{r}
@@ -491,15 +507,15 @@ parse_date(c("1975-02-05"))
 parse_date(c("75-02"), format = "%y-%m")
 ```
 
-Dates written on the form 15/02/75 can mean both February 15, 1975, and May 2, 
+Dates written on the form 05/02/75 can mean both February 5, 1975, and May 2, 
 1975, depending on where you are in the world. Europe uses the sensible DD/MM/
 YY format, where the order goes from the smallest time unit, days, to the medium time 
 units, months, and then to years. In the United States, they use the MM/DD/YY format. 
-To get the 15th of February, you need one of these formats:
+To get the 5th of February, you need one of these formats:
 
 ```{r}
-parse_date(c("15/02/75"), format = "%d/%m/%y") # Europe
-parse_date(c("02/15/75"), format = "%m/%d/%y") # USA
+parse_date(c("05/02/75"), format = "%d/%m/%y") # Europe
+parse_date(c("02/05/75"), format = "%m/%d/%y") # USA
 ```
 
 Date specifications that only use numbers are not affected by the local language, but 
@@ -508,8 +524,8 @@ varies from language to language, obviously.
 
 ```{r}
 # English and Danish
-parse_date(c("Feb 15 1975"), format = "%b %d %Y", locale = locale("en"))
-parse_date(c("15. feb. 1975"),format ="%d. %b %Y",locale =locale("da"))
+parse_date(c("Feb 5 1975"), format = "%b %d %Y", locale = locale("en"))
+parse_date(c("5. feb. 1975"),format ="%d. %b %Y",locale =locale("da"))
 ```
 
 “Datetimes” can be parsed using combinations of date and time strings. With these, 

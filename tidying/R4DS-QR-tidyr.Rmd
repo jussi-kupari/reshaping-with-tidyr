@@ -36,7 +36,7 @@ Consider the data below:
      names_to = "year",
      values_to = "income"
    )
- )
+)
 ```
 
 ```{r}
@@ -77,7 +77,7 @@ Note that the `year` column has type `<chr>` above. If we want to assign a diffe
 type, we can use `names.transform`
 
 ```{r}
-# Make 'year' as integer
+# Make 'year' an integer
 mean_income %>% 
   pivot_longer(
     cols = -country,
@@ -158,9 +158,18 @@ tbl %>%
   )
 ```
 
+```{r}
+# New syntax
+tbl %>% 
+  separate_wider_delim(
+    date, 
+    delim = "/", 
+    names = c("day", "month")
+  )
+```
 
 ```{r}
-# Default separator is any non-alphanumeric character
+# Old syntax: default separator is any non-alphanumeric character
 tbl %>% 
   separate(
     date, 
@@ -181,6 +190,15 @@ tbl %>%
 ```
 
 ```{r}
+tbl %>% 
+  separate_wider_delim(
+    date, delim = "/", 
+    names = c("day", "month"), 
+    cols_remove = FALSE
+  )
+```
+
+```{r}
 # Convert new columns to more appropriate type
 tbl %>% 
   separate(
@@ -191,21 +209,88 @@ tbl %>%
     convert = TRUE
   )
 ```
-The reverse of separating is uniting
+
+```{r}
+# No option to 'convert' in new syntax
+tbl %>% 
+  separate_wider_delim(
+    date, delim = "/", 
+    names = c("day", "month"), 
+    cols_remove = FALSE
+  )
+```
+
+
+If your separator is more complex, you can use the sep argument. The argument takes a regular 
+expression, and the column will be split on this. For example, we can split on alphabet 
+characters and spaces like this:
+
+```{r}
+# Complex separator
+(tbl <- 
+   tribble(
+     ~date,
+     "11th of month 5",
+     "4th of month 7",
+     "21st of month 12"
+   )
+)
+```
+```{r}
+tbl %>% 
+  separate(date, into = c("day", "month"), sep = "[[:alpha:][:space:]]+")
+```
+```{r}
+# OR with separate_wider_regex
+tbl %>% 
+  separate_wider_regex(
+    date, 
+    patterns = c(day = "\\d+", "\\D+", month = "\\d+")
+  )
+```
+
+Here is another unorthodox format
+```{r}
+(tbl <-
+   tribble(
+     ~date,
+     "11th of May",
+     "4th of July",
+     "21st of December"
+   )
+)
+```
+```{r}
+# separate_rows_wider superseeds 'extract'
+tbl %>% 
+  separate_wider_regex(
+    date, 
+    patterns = c(day = "\\d+", fluff = "[^[:upper:]]+", month = "\\w+")
+  )
+```
+
+The reverse of separating is uniting.
+
+```{r}
+# Our trusted data
+(tbl <- 
+   tribble(
+     ~date,
+     "11/5",
+     "4/7",
+     "21/12"
+   )
+)
+```
 
 ```{r}
 # First we separate
 (tbl2 <-
-   tbl %>% 
-   separate(
-     date,
-     into = c("day", "month"),
-     sep = "/",
-     remove = FALSE,
-     convert = TRUE
-   )
+   tbl %>%
+   separate_wider_delim(date, delim = "/", names = c("day", "month"))
 )
 ```
+
 
 ```{r}
 # Then we unite
@@ -250,6 +335,13 @@ military_casualties %>%
     sep = "/|," # / OR ,
   )
 ```
+
+```{r}
+# With separate_longer_delim use stringr::regex if you have multiple delims
+military_casualties %>% 
+  separate_longer_delim(cols = c(groups, deaths), delim = regex("[/,]")) 
+```
+
 ```{r}
 # Convers deaths to double
 military_casualties %>% 
@@ -279,6 +371,7 @@ that are missing from the data.
 
 ```{r}
 # Expand to all possible combinations of A, and B
+# This is like expand_grid but starting with df columns. Only given columns used
 tbl %>% expand(A, B)
 ```
 
@@ -339,8 +432,21 @@ tbl %>% complete(A = 1:4, B = 11:13)
 )
 ```
 
+The simplest way to handle missing values is to get rid of it. A crude approach is 
+to remove all observations with one or more missing variable values. The drop_na()
+function does exactly that.
+
 ```{r}
-# The simplest way to handle missing values is to get rid of it.
+# We lose a country entirely if we have missing data for a single year!
+mean_income %>% 
+  drop_na()
+```
+
+If we reformat the table and drop missing values, we will only remove the observations where 
+the income is missing for a given year.
+
+```{r}
+# Pivot longer first
 mean_income %>%
   pivot_longer(
     -country, 
@@ -349,12 +455,8 @@ mean_income %>%
     ) 
 ```
 
-In this example, we lose a country entirely if we have missing data for a single year. 
-This is unlikely to be acceptable and is another good argument for tidy data. If we 
-reformat the table and drop missing values, we will only remove the observations where 
-the income is missing for a given year.
 ```{r}
-# The simplest way to handle missing values is to get rid of it.
+# Then drop NA's
 mean_income %>%
   pivot_longer(
     -country, 
@@ -364,15 +466,32 @@ mean_income %>%
   drop_na(income)
 ```
 
+```{r}
+# Remove NA's with pivot_longer
+mean_income %>%
+  pivot_longer(
+    -country, 
+    names_to = "year", 
+    values_to = "income", 
+    values_drop_na = TRUE
+    )
+```
+
+
 Sometimes, you can replace missing data with some appropriate data. For example, 
 we could replace missing data in the mean_income table by setting each value to the 
 mean of its column. The replace_na() function does this. 
+
+```{r}
+mean_income %>% replace_na(list(`2003` = mean(.$`2003`, na.rm = TRUE)))
+```
+
 ```{r}
 mean_income %>%
   pivot_longer(
     -country, 
     names_to = "year", 
-    values_to = "income"
+    values_to = "income", 
     ) %>% 
   replace_na(list(income = 0)) # Note, 0 is not a good replacement here, just an example!
 ```

@@ -9,6 +9,54 @@ library(tidyverse)
 ```
 
 ```{r}
+# Very untidy table
+readxl::read_excel("datasets/bad-table-psych.xlsx")
+```
+
+```{r}
+# Clean unityd table
+readxl::read_excel(
+  "datasets/bad-table-psych.xlsx", 
+  skip = 2, 
+  n_max = 12, .name_repair = "universal"
+) %>% 
+  select(-c(Name, Birthday, Comment)) %>% 
+  select(where(\(x) !(all(is.na(x)) | all(x == "")))) %>% 
+  rename_with(\(x) str_to_lower(x)) %>% 
+  rename_with((\(x) str_replace_all(x, "\\.+", "_"))) %>% 
+  rename(
+    test_time = "_9",
+    rec_lang = language_11) %>% 
+  separate_wider_delim(
+    test_reaction, 
+    delim = "=", 
+    names = c("test", "reaction")
+  ) %>% 
+  mutate(
+    gender = str_extract(gender, "^.",),
+    language_native = 
+      case_when(
+        str_detect(language_4, "^[gG]") ~ "deu",
+        str_detect(language_4, "^[fF]") ~ "fra"
+      )
+  ) %>% 
+  rowid_to_column() %>% 
+  separate_longer_delim(stai, delim = ",") %>% 
+  separate_wider_delim(
+    stai, 
+    delim = "=", 
+    names = c("stai_key", "stai_val")
+  ) %>% 
+  mutate(
+    stai_val = as.integer(stai_val),
+    stai_key = str_c("stai_", trimws(stai_key))) %>% 
+  relocate(rowid, starts_with("stai"), .before = everything()) %>% 
+  pivot_wider(names_from = stai_key, values_from = stai_val)
+```
+
+
+
+```{r}
 # A tibble with tribble
 (clean_data <- 
   tribble(
@@ -20,6 +68,7 @@ library(tidyverse)
  )
 ```
 #### Basic rearrangements
+
 Splitting values - tidyr::separate()
 ```{r}
 # Two variables in the same column, key-value pairs
@@ -37,18 +86,25 @@ Splitting values - tidyr::separate()
 ```
 
 ```{r}
-# Separate 
+# Separate to different variables with delimiter
 patient1 %>% 
-  separate(
+  separate_wider_delim(
     gender_age, 
-    into = c("gender", "age"), 
-    sep = "-", 
-    convert = TRUE # Convert 'age' from character to integer
+    delim = "-", 
+    names = c("gender", "age")
   )
 ```
 
 ```{r}
-# # Two variables in the same column, no separator
+# Separate to different variables with delimiter
+patient1 %>% 
+  separate_wider_position(
+    gender_age, widths = c(gender = 1, 1, age = 2)
+  )
+```
+
+```{r}
+# Two variables in the same column, no separator
 (patient2 <- 
    tribble(
   ~subject_id, ~gender_age,
@@ -63,13 +119,10 @@ patient1 %>%
 ```
 
 ```{r}
-# Separate 
+# Separate to different variables with position
 patient2 %>% 
-  separate(
-    gender_age, 
-    into = c("gender", "age"), 
-    sep = 1, 
-    convert = TRUE
+  separate_wider_position(
+    gender_age, widths = c(gender = 1, age = 2)
   )
 ```
 
@@ -94,10 +147,13 @@ Splitting and collating - separate() and unite()
 ```
 
 ```{r}
-# Splitting columns continued
-# Use quotes to designate columns since we are not referring to objects.
+# Separate to columns with delimiter
 date_unite %>% 
-  separate(date, c("year", "month", "day"), sep = "-")
+  separate_wider_delim(
+    date, 
+    delim = "-", 
+    names = c("year", "month", "day")
+  )
 ```
 
 ```{r}
@@ -125,13 +181,20 @@ visit_times %>%
 # Note the incoherent white space and separators
 (patient_df <- tibble(
     subject_id = 1001:1003, 
-    visit_id = c("1,2, 3", "1|2", "1"),
+    visit_id = c("1,2, 3", "1;2", "1"),
     measured = c("9,0; 11", "11, 3", "12"))
  )
 ```
 
 ```{r}
-# Separate rows
+# With separate_longer_delim use stringr::regex for multiple delimiters
+# No option to convert types
+patient_df %>% 
+  separate_longer_delim(c(visit_id, measured), delim = regex("[,;]")) 
+```
+
+```{r}
+# The original 'separate_rows' works like this
 (patient_separate <- 
    patient_df %>% 
    separate_rows(

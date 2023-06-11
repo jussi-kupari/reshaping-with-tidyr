@@ -33,7 +33,7 @@ name, x %>% f. You can also give %>% an anonymous function:
 
 ```{r}
 # You must put the lambda-fn in parentheses with both %>%  and |>
-"hello, "%>% (\(y) paste(y, "world!"))
+"hello, " %>% (\(y) paste(y, "world!"))
 ```
 
 but |> still needs a function call, so if you give it an anonymous function, you must 
@@ -41,7 +41,7 @@ call the function as well as add () after the function definition).
 
 ```{r}
 # with |> you have to call the function at the end with ()
-"hello, "|> (\(y) paste(y, "world!")) () 
+"hello, " |> (\(y) paste(y, "world!")) () 
 ```
 
 With the %>% operator, you do not need the parentheses for the function calls, but 
@@ -75,7 +75,7 @@ rnorm(5) %>% tibble(x = sin(.), y = abs(.))
 
 ```{r}
 # You can avoid this by putting the rhs expression in curly brackets
-rnorm(5) %>% {tibble(x = sin(.), y = abs(.))}
+rnorm(5) %>% { tibble(x = sin(.), y = abs(.)) }
 ```
 
 In general, you can put expressions in curly brackets as the right-hand side of a pipe 
@@ -100,16 +100,16 @@ do the same for several input files, we can define a pipeline function for this 
 pipeline <- 
   . %>%
  pivot_longer(
+   !country,
    names_to = "year", 
-   values_to = "mean_income", 
-   !country) %>%
+   values_to = "mean_income"
+   ) %>%
  drop_na()
 
 pipeline
 ```
 
-
-Note that purrr has a `compose()` function to, well, compose functions. This can 
+Note that purrr has a `compose()` function to, compose functions. This can 
 be combined with `partial()`.
 
 ```{r}
@@ -136,7 +136,7 @@ fn2("input")
 ```
 
 ```{r}
-# Create partial functions with set parameters
+# Create partial functions with preset parameters
 # Changing the order of arguments if quite funky
 
 add_foo1 <- partial(paste, "foo") # Default, partialised arguments first
@@ -212,7 +212,10 @@ the data in a variable, save it, and then start a new pipeline with the data as 
 ```{r}
 # Using %T>% to print at the middle of the pipeline 
 iris %T>% 
-  { select(., Sepal.Length) %>% print(head) } %>%  # Print to screen and then continue with pipeline
-  pull(Species) %>% 
+  # Print to screen 
+  { select(., Sepal.Length) %>% head() %>% print() } %>%  
+  # continue with full iris
+  pull(Species) %>%
+  head() %>% 
   toupper()
 ```

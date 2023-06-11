@@ -18,7 +18,7 @@ evaluates to TRUE or all elements where the predicate evaluates to FALSE.
 
 ```{r}
 # Keep even numbers only
-is_even <- function(x) x %% 2 == 0
+is_even <- \(x) x %% 2 == 0
 
 1:10 %>% keep(is_even)
 ```
@@ -46,6 +46,7 @@ then negate(p) returns FALSE and vice versa.
 Since you already have complementary functions in keep() and discard(), you 
 would not use negate() for filtering, though.
 
+
 `compact()` removes NULL elements from a list
 
 ```{r}
@@ -66,7 +67,6 @@ result, and for such cases, compact() can be useful.
 x <- y <- 1:3
 x
 y
-
 ```
 
 
@@ -115,11 +115,16 @@ has a specific mapping function. The function for logical values is named map_lg
 With something as simple as this example, you should not use purrr. Vector 
 expressions are faster and easier to use.
 
+```{r}
+1:4 %% 2 == 0
+```
+
+
 You cannot always use vector expressions, however. Say you have a list of vectors like below:
 
 ```{r}
 # A list of vectors
-my_list <- list(1:5, 200:540, 5:60)
+(my_list <- list(1:5, 200:540, 5:60))
 ```
 
 ```{r}
@@ -127,8 +132,11 @@ my_list <- list(1:5, 200:540, 5:60)
 my_list %>% length()
 ```
 
+When you have a function that is not vectorized, you can use a map function to apply 
+it on all elements in a list.
+
 ```{r}
-# This does
+# This works
 my_list %>% map(length)
 ```
 
@@ -149,9 +157,9 @@ map_dbl(.x, .f, ..., .progress = FALSE)
 
 map_chr(.x, .f, ..., .progress = FALSE)
 
-map_vec(.x, .f, ..., .ptype = NULL, .progress = FALSE)
+map_vec(.x, .f, ..., .ptype = NULL, .progress = FALSE) !This is new in purrr 1.0.0
 
-walk(.x, .f, ..., .progress = FALSE)
+walk(.x, .f, ..., .progress = FALSE) !Side effects
 
 ```{r}
 # identity() is trivial identity function returning its argument. 
@@ -166,23 +174,37 @@ walk(.x, .f, ..., .progress = FALSE)
 1:3 %>% map_chr(identity) %T>% print() %>% class() 
 ```
 
+```{r}
+# map_vec() is a general mapper for eg. dates, factors etc.
+1:3 %>% map_vec(\(x) Sys.Date() + x)
+letters[1:3] %>% map_vec(\(x) factor(x))
+```
+
+
 The different map functions will give you an error if the function you apply does not 
 return values of the type the function should. Sometimes, a map function will do type 
 conversion, as before, but not always. It will usually be happy to convert in a direction 
 that doesn’t lose information, for example, from logical to integer and integer to double, 
 but not in the other direction.
 
-!! NOTE THE `map_df*()` functions below have been deprecated See further below how to do this now !!
-The `map_dfr()` and `map_dfc()` functions return data frames (tibbles). The `map_df()` function does the same as `map_dfr()`.
+!! NOTE THE `map_df*()` functions below have been deprecated. 
+See further below how to do this now !!
+The `map_dfr()` and `map_dfc()` functions return data frames (tibbles). 
+The `map_df()` function does the same as `map_dfr()`.
 
 ```{r}
 # map_dfr and map_df bind the output by rows
 x <- tibble(a = 1:2, b = 3:4)
+list(a = x, b = x) %>%  map_dfr(identity)
+```
+
+```{r}
+# map_df also binds by rows
 list(a = x, b = x) %>%  map_df(identity)
 ```
 
 ```{r}
-# map_dfc binds the output by cols
+# map_dfc binds the output by columns
 list(a = x, b = x) %>%  map_dfc(identity)
 ```
 
@@ -192,33 +214,32 @@ The suggested method to do the above procedures is using `map()` and `list_rbind
 # Bind output data frames by rows
 x <- tibble(a = 1:2, b = 3:4)
 list(a = x, b = x) %>%  
-  map(identity) %>% 
   list_rbind()
 ```
 
 ```{r}
 # dplyr's bind_rows() also seems to give the same output
-list(a = x, b = x) %>%  
-  map(identity) %>% 
+list(a = x, b = x) %>% 
   bind_rows()
 ```
 
 
 ```{r}
-# Bind output by cols
+# list_cbind creates list columns in this case
 list(a = x, b = x) %>%  
   map(identity) %>% 
   list_cbind()
 ```
 
-
-
 ```{r}
-# With bond_cols()
+# With bind_cols() you get a similar result as with mad_dfc()
 list(a = x, b = x) %>%  
-  map(identity) %>% 
   bind_cols() 
 ```
+
+You do not need to give the data frame functions data frames as input, as long as the 
+function you apply to the input returns data frames. This goes for all the map functions. 
+They will accept any sequence input; they only restrict and convert the output.
 
 If the items you map over are sequences themselves, you can extract elements by 
 index; you do not need to provide a function to the map function.
@@ -227,47 +248,57 @@ The three below give the same result:
 ```{r}
 # Extract by index only using map()
 list(1:3, 4:6) %>% 
-   map_dbl(1)
+   map_dbl(1) # First element of each list
 
 list(1:3, 4:6) %>% 
-   map_dbl(3)
+   map_dbl(3) # Third element of each list
+```
+
+pluck() implements a generalised form of [[ that allow you to index deeply and flexibly into data structures. It always succeeds, returning .default if the index you are trying to access does not exist or is NULL.
+
+```{r}
+# Same as x[[1]][[2]]
+list(1:3, 4:6) %>% 
+  pluck(1, 2) # Second element of the first element 
+```
+
+```{r}
+# Non-existing element returns NULL
+list(1:3, 4:6) %>% 
+  pluck(1, 6)
 ```
 
 ```{r}
 # Use pluck() together with map()
 # Pluck is mostly used for digging deeper into nested lists
-list(1:3, 4:6) %>% 
+list(1:3, 4:6) %>%
    map_dbl(pluck(1))
 ```
 
 ```{r}
-# Map `[[` to extract element
+# Map `[` or `[[` to extract element
 list(1:3, 4:6) %>% 
   map_dbl(`[[`, 1 )
 ```
 
 If the items have names, you can also extract values using these.
-
 ```{r}
 # Use names to extract
-x <- list(
+(x <- list(
   c(a = 42, b = 13),
   c(a = 24, b = 31)
-)
+))
 
 x %>% map_dbl("a")
-
 x %>% map_dbl(pluck("b"))
-
 x %>% map_dbl(`[[`, "a")
 ```
 
 This is mostly used when you map over data frames.
-
 ```{r}
 a <- tibble(foo = 1:3, bar = 11:13)
 b <- tibble(foo = 4:6, bar = 14:16)
-ab <- list(a = a, b = b)
+(ab <- list(a = a, b = b))
 ```
 
 ```{r}
@@ -301,7 +332,7 @@ my_list %>% pluck(2, 2, 5)
 ```{r}
 # Using map_dbl to extract the fifth element of the second column in both data frames
 my_list %>% 
-  map_dbl(\(.x) pluck(.x, 2, 5))
+  map_dbl(\(x) pluck(x, 2, 5))
 ```
 
 Related to extracting elements with pluck, you can apply functions to different 
@@ -323,28 +354,49 @@ Depth 2 is the columns in these data frames. Depth 3 is the individual items in 
 ```{r}
 # map_depth(x, 0, fun) is equivalent to fun(x).
 map_depth(my_list, 0, names)
-map_depth(my_list, 0, length)
-
 names(my_list)
+
+map_depth(my_list, 0, length)
 length(my_list)
 ```
 
 ```{r}
 # map_depth(x, 1, fun) is equivalent to map(x, fun)
 map_depth(my_list, 1, names)
-map_depth(my_list, 1, length)
-
 map(my_list, names)
+
+map_depth(my_list, 1, length)
 map(my_list, length)
 ```
 
 ```{r}
-# NOTE! map_depth(x, 2, fun) throws an error where map(x, \(y) map(y, fun)) works
+# NOTE! map_depth(x, 2, fun) requires .ragged = TRUE to work here, why?
 # map_depth(x, 2, fun) is equivalent to map(x, \(y) map(y, fun))
 # map_depth(my_list, 2, identity)
 
-map(my_list, \(.x) map(.x, length))
-# map_depth(my_list, 2, length) <- ERROR
+map(my_list, \(x) map(x, length))
+map_depth(my_list, 2, length, .ragged = TRUE)
+```
+
+```{r}
+# Depth 0 is just like using the function normally.
+ab %>% length()
+ab %>% map_depth(0, length)
+```
+
+```{r}
+# Depth 1 is like normal map.
+ab %>% map_depth(1, sum)
+```
+
+```{r}
+# Depth 2 is for the individual columns in the dataframes in this case
+ab %>% map_depth(2, sum, .ragged = TRUE) # Why the .ragged = TRUE is needed?
+```
+
+```{r}
+# Depth 3 is the individual elements in the dataframe columns
+ab %>% map_depth(3, \(x) x %% 2 == 0, .ragged = TRUE) 
 ```
 
 If you only want to apply a function to some of the elements, you can use `map_if()`. 
@@ -352,18 +404,26 @@ It takes a predicate and a function and applies the function to those elements w
 predicate is true. It returns a list, but you can convert it if you want another type.
 
 ```{r}
-is_even <- function(x) x %% 2 == 0
-add_one <- function(x) x + 1
+is_even <- \(x) x %% 2 == 0
+add_one <- \(x) x + 1
 ```
 
 ```{r}
-# Map function based on predicate. Returns a list 
+# Map function based on predicate. Returns a list. 
 map_if(1:10, is_even, add_one)
 ```
-
+With map_if(), you keep all elements, but the function is only applied to some 
+of them.
 ```{r}
 # Return a numeric vector with extra step
 map_if(1:10, is_even, add_one) %>% as.numeric()
+```
+
+Notice that this is different from combining filtering and mapping; that combination 
+would remove the elements that do not satisfy the predicate.
+```{r}
+# Filter and map
+1:6 %>%  keep(is_even) %>% map_dbl(add_one)
 ```
 
 Using modify_if() instead of map_if() automatically returns a similar object with modification
@@ -380,7 +440,7 @@ true and another to the elements where it is false, you can prove a function to 
 
 ```{r}
 # Use .else = TRUE, to apply another function on elements that return FALSE
-add_two <- function(x) x + 2
+add_two <- \(x) x + 2
 
 1:6  %>% 
  map_if(is_even, add_one, .else = add_two)  %>% 
@@ -400,17 +460,26 @@ instead of the predicate but otherwise works the same as `map_if()`.
 1:6 %>%  modify_at(2:5, add_one)
 ```
 
+In purrr 1.0.0 you can use keep_at or discard_at to keep/discard elements by name
+```{r}
+1:6 %>%  discard_at(2:5)
+1:6 %>%  keep_at(2:5)
+```
+
+```{r}
+# Discard or keep based on element names
+(myls <- list(a = 1, b = 4, c = 7, d = 9))
+
+myls %>% discard_at(c("b", "d"))
+```
+
+
 If you map over a list, x, then your function will be called with the elements in the 
 list, x[[i]]. If you want to get the elements wrapped in a length-one list, that is, use 
 indexing x[i], you can use lmap().
 
-CONTINUE!!!!
-
-Study lmap
-https://www.r-bloggers.com/2015/10/using-purrr-with-dplyr/
-
 ```{r}
-list(a = 1:3, b = 4:6) %>%  map(print) %>% invisible()
+list(a = 1:3, b = 4:6) %>% map(print) %>% invisible()
 ```
 
 ```{r}
@@ -433,12 +502,482 @@ f <- function(x) list("foo", "bar")
 1:2 %>% lmap(f)
 ```
 
+For example, while you can get the length of elements in a list using map() and 
+length()
+
+```{r}
+# map and unlist
+list(a = 1:3, b = 4:8) %>% map(length) %>% unlist()
+```
+
+```{r}
+# map_int
+list(a = 1:3, b = 4:8) %>% map_int(length)
+```
+
+you will get an error if you try the same using lmap(). This is because length()
+returns a numeric and not a list. You need to wrap length() with list() so the result is 
+the length in a (length one) list.
+
+```{r}
+list(a = 1:3, b = 4:8) %>% lmap(\(x) length(x) %>% list())
+```
+
+If it surprises you that the lengths are one here, remember that the function is called 
+with the length-one lists at each index. If you want the length of what they contain, you 
+need to extract that.
+
+```{r}
+list(a = 1:3, b = 4:8) %>% lmap(\(x) pluck(x, 1) %>% length() %>% list())
+```
+
+If you want to extract the nested data, though, you probably want map() and not lmap().
 
 
+Sometimes, we only want to call a function for its side effect. In that case, you can 
+pipe the result of a map into invisible(). The function walk() does that for you, and 
+using it makes it explicit that this is what you want, but it is simply syntactic sugar for 
+map() + invisible().
+
+```{r}
+1:3 %>% map(print) %>% invisible()
+```
+
+```{r}
+1:3 %>% walk(print)
+```
+
+If you need to map over multiple sequences, you have two choices of map functions 
+to choose from. Some functions map over exactly two sequences. For each of the map()
+functions, there are similar map2() functions. These take two sequences as the first two 
+arguments.
+
+```{r}
+# map2
+x <- 1:3
+y <- 3:1
+map2_dbl(x, y, `+`)
+x %>% map2_dbl(y, `+`)
+```
+
+```{r}
+# pmap
+pmap_dbl(list(x, y), `+`)
+list(x, y) %>% pmap_dbl(`+`)
+```
+
+```{r}
+# With pmap you can use more than two sequences
+z <- 4:6
+
+list(x, y, z) %>% pmap_dbl(\(x, y, z) x + y - z)
+```
+
+If you need to know the indices for each value you map over, you can use the imap()
+variations. When you use these to map over a sequence, your function needs to take two 
+arguments where the first argument is the sequence value and the second the value’s 
+index in the input.
+
+```{r}
+x <- c("foo", "bar", "baz")
+
+x %>% imap_chr(\(x, i) paste0(i, ": ", x))
+```
+
+There is yet another variant of the mapping functions, the modify() functions. These 
+do not have the type variants (but the _at, _if, _depth, and so on); instead, they will 
+always give you an output of the same type as the input:
+
+```{r}
+modify2(1:3, 3:1, `+`)
+map2_dbl(1:3, 3:1, `+`)
+```
+
+```{r}
+x <- c("foo", "bar", "baz")
+
+x %>% imodify(\(x, i) paste0(i, ": ", x))
+x %>% imap_chr(\(x, i) paste0(i, ": ", x))
+```
+
+### Reduce and Accumulate
+
+If you want to summarize all your input into a single value, you probably want to 
+reduce() them. Reduce repeatedly applies a function over your input sequence. If you 
+have a function of two arguments, f (a, x), and a sequence x1, x2, …, xn, then reduce(f)
+will compute f(… f( f(x1, x2), x3), …, xn), that is, it will be called on the first two elements 
+of the sequence, the result will be paired with the next element, and so forth. Think of the 
+argument a as an accumulator that keeps the result of the calculation so far.
+
+```{r}
+# Reduce and Accumulate
+1:5 %>% reduce(`+`)
+1:5 %>% accumulate(`+`)
+
+letters[1:5] %>% reduce(paste, sep = ".")
+letters[1:5] %>% accumulate(paste, sep = ".")
+```
 
 
+To make the order of function application clear, I define a “pair” type:
+```{r}
+pair <- function(first, second) {
+ structure(list(first = first, second = second),
+ class = "pair")
+}
+
+toString.pair <- function(x, ...) {
+ first <- toString(x$first, ...)
+ rest <- toString(x$second, ...)
+ paste('[', first, ', ', rest, ']', sep = '')
+}
+
+print.pair <- function(x, ...) {
+ x %>% toString() %>% cat() %>% invisible()
+}
+```
+
+If we reduce using pair(), we see how the values are paired when the function 
+is called:
+
+```{r}
+1:4 %>% reduce(pair)
+```
+
+If you reverse the input, you can reduce in the opposite order, combining the last pair 
+first and propagating the accumulator in that order
+
+```{r}
+1:4 %>% rev() %>% reduce(pair)
+```
+
+If, for some reason, you want to apply the function and have the accumulator as the 
+last argument, you can use the .dir = “backward” argument.
+
+```{r}
+1:4 %>% reduce(pair, .dir = "backward")
+```
+
+The first (or last) element in the input does not have to be the value for the initial 
+accumulator. If you want a specific starting value, you can pass that to reduce() using 
+the .init argument.
+
+```{r}
+1:3 %>% reduce(pair, .init = 0)
+```
+
+```{r}
+1:3 %>% rev() %>% reduce(pair, .init = 4)
+```
+
+```{r}
+1:3 %>% reduce(pair, .init = 4, .dir = "backward")
+```
+
+If your function takes more than one argument, you can provide the additional 
+arguments to reduce() and then input sequence and function. Consider, for example, a 
+three-argument function like this:
+```{r}
+# additional arguments
+loud_pair <- function(acc, next_val, volume) {
+ # Build a pair
+ ret <- pair(acc, next_val)
+ # Announce that pair to the world
+ ret %>% toString() %>% 
+ paste(volume, '\n', sep = '') %>% 
+ cat()
+ # Then return the new pair
+ ret
+}
+```
+
+It builds a pair object but, as a side effect, prints the pair followed by a string that 
+indicates how “loud” the printed value is. We can provide the volume as an extra 
+argument to reduce():
+
+```{r}
+1:3 %>% 
+  reduce(loud_pair, volume = '!') %>% 
+  invisible()
+```
+
+```{r}
+1:3 %>% 
+  reduce(loud_pair, volume = '!!') %>% 
+  invisible()
+```
+
+If you want to reduce two sequences instead of one — similar to a second argument to 
+reduce() but a sequence instead of a single value — you can use reduce2():
+
+```{r}
+# Second argument is one shorter than the other
+volumes <- c('!', '!!')
+1:3 %>% reduce2(volumes, loud_pair) %>% invisible()
+```
+
+```{r}
+# Unless you have a specific initiator value
+volumes <- c('!', '!!', '!!!')
+1:3 %>% reduce2(volumes, loud_pair, .init = 0) %>% invisible()
+```
+
+```{r}
+1:3 %>% 
+  reduce2(c('!', '!!', '!!!'), .init = 0, loud_pair) %>% 
+  invisible()
+```
+
+```{r}
+reduce2(1:10, letters[1:9], ~ paste0(..1, ..2, ..3))
+```
+
+If you want all the intermediate values of the reductions, you can use the 
+accumulate() function. It returns a sequence of the results of each function application.
+
+```{r}
+# Accumulate
+1:5 %>% accumulate(pair)
+```
+
+```{r}
+1:5 %>% accumulate(pair, .init = 0)
+```
+
+```{r}
+1:4 %>% accumulate(pair, .init = 0, .dir = "backward")
+```
+
+The accumulate2() function works like reduce2(), except that it keeps the 
+intermediate values like accumulate() does.
+
+```{r}
+accumulate2(1:10, letters[1:9], ~ paste0(..1, ..2, ..3))
+```
+
+```{r}
+accumulate2(1:10, letters[1:10], ~ paste0(..1, ..2, ..3), .init = 0)
+```
 
 
+### Partial Evaluation and Function Composition
+
+When you `filter`, `map`, or `reduce` over sequences, you sometimes want to modify a 
+function to match the interface of `purrr`’s functions. If you have a function that takes 
+too many arguments for the interface, but where you can fix some of the parameters to 
+get the application you want, you can do what is called a partial evaluation. This just 
+means that you create a new function that calls the original function with some of the 
+parameters fixed.
+
+For example, if you `filter`, you want a function that takes one input value and returns 
+one (Boolean) output value. If you want to filter the values that are less than or greater 
+than, say, three, you can create functions for this.
+
+```{r}
+greater_than_three <- \(x) x > 3
+less_than_three <- \(x) x < 3
+```
+
+```{r}
+1:6 %>% keep(greater_than_three)
+1:6 %>% keep(less_than_three)
+```
+
+The drawback of doing this is that you might need to define many such functions, 
+even if you only use each once in your pipeline.
+
+Using the `partial()` function, you can bind parameters without explicitly defining 
+new functions. For example, to bind the first parameter to `<`, as in the `greater_than_
+three()` function, you can use `partial()`:
+
+```{r}
+partial(`<`, 3)
+```
 
 
+```{r}
+# Greater than 3 with partial
+1:6 %>% keep(partial(`<`, 3))
+```
+
+By default, you always bind the first parameter(s). To bind others, you need to name 
+which parameters to bind. The less than operator has these parameter names:
+
+```{r}
+`<`
+```
+
+so you can use this partial evaluation for less_than_three():
+
+```{r}
+# Less than three with partial
+1:6 %>% keep(partial(`<`, e2 = 3))
+```
+
+You can use partial evaluation for mapping:
+
+```{r}
+1:6 %>% map_dbl(partial(`+`, 2)) # 2 + 1, 2 + 2, 2 + 3, 2 + 4, 2 + 5, 2 + 6 
+1:6 %>% map_dbl(partial(`-`, 1))
+1:6 %>% map_dbl(partial(`-`, e2 = 4)) # 1 - 4, 2 - 4, 3 - 4, 4 - 4, 5 - 4, 6 - 4
+```
+
+```{r}
+# More than one function
+1:3 %>% 
+  map_dbl(partial(`+`, 2)) %>% 
+  map_dbl(partial(`*`, 3))
+```
+
+Using function composition with `compose()`, the previous can be written as:
+```{r}
+1:3 %>% map_dbl(compose(partial(`*`, 3), partial(`+`, 2)))
+```
+
+With `partial()` and `combine()`, you can modify functions, but using them does not 
+exactly give you code that is easy to read. A more readable alternative is using lambda 
+expressions.
+
+### Lambda Expressions
+
+Lambda expressions are a concise syntax for defining anonymous functions, that is, 
+functions that we do not name. The name “lambda expressions” comes from “lambda 
+calculus", a discipline in formal logic, but in computer science, it is mostly used as a 
+synonym for anonymous functions.
+
+In R, you define anonymous functions 
+the same way that you define named functions. You always define functions the same 
+way; you only give them a name when you assign a function definition to a variable.
+
+In R v.4 you can use `\(x)` as a shortcut for `function(x)`
+
+We can use a function without assigning it to a name several ways in R:
+```{r}
+# These are the same
+1:6 %>% keep(less_than_three) # Fn is assigned to name
+1:6 %>% keep(\(x) x < 3)
+1:6 %>% keep(function(x) x < 3)
+1:6 %>% keep(~ .x < 3) # purrr style formula
+```
+
+Normal lambda's work on their own (they are identical to function()), but purrr's
+lambdas do not work outside a purrr function (or certain other Tidyverse functions).
+
+```{r}
+# This works
+is_even_lambda <- \(x) x %% 2 == 0
+is_even_lambda(3)
+```
+
+```{r}
+# This does not work, as no function is defined
+is_even_purrr <- ~ .x %% 2 == 0
+is_even_purrr(3)
+```
+
+R’s rule for looking for functions can be even more confusing if there is a variable in 
+an inner scope and a function in an outer scope:
+
+```{r}
+f <- function(x) 2 * x
+
+g <- function() {
+ f <- 5 # not a function
+ f(2) # will look for a function, and finds it outside the scope of the function
+}
+g()
+```
+
+Here, the f() function in the outer scope is called because it is a function; the 
+variable in the inner scope is ignored.
+
+```{r}
+g <- function() {
+ f <- 5 # not a function
+ f(f) # function f and variable f are not the same
+}
+g()
+```
+
+### purrr's as_mapper
+
+https://purrr.tidyverse.org/reference/as_mapper.html
+
+as_mapper is the powerhouse behind the varied function specifications that most purrr functions allow.
+
+```{r}
+# as_mapper creates a function from a formula (happens automatically when used with purrr?)
+as_mapper(~ .x %% 2 == 0)
+```
+
+```{r}
+# Now we can use the formula syntax fuction normally
+is_even_purrr <- as_mapper(~ .x %% 2 == 0)
+as_mapper(~ .x %% 2 == 0) (3) 
+as_mapper(~ .x %% 2 == 0) (4)
+is_even_purrr(5)
+is_even_purrr(6)
+```
+
+If the expression inside as_mapper is a function, it is used as is.
+If a formula, e.g. ~ .x + 2, it is converted to a function. There are three ways 
+to refer to the arguments:
+
+    For a single argument function, use .
+
+    For a two argument function, use .x and .y
+
+    For more arguments, use ..1, ..2, ..3 etc
+
+This syntax allows you to create very compact anonymous functions. Note that 
+formula functions conceptually take dots (that's why you can use ..1 etc). 
+They silently ignore additional arguments that are not used in the formula expression.
+
+```{r}
+# Formula is made into a function
+as_mapper(~ .x < 3)
+```
+
+```{r}
+# A function is used as it is
+as_mapper(\(x) x < 3)
+```
+
+```{r}
+# A vector or list is made into an extractor function (note the use of pluck)
+as_mapper(c(2, 3))
+as_mapper(1)
+as_mapper(c("a", "b", "c"))
+as_mapper(list(1, "a", 2))
+```
+
+Behind the scenes `as_mapper` uses `rlang::as:function`
+
+```{r}
+rlang::as_function(~ .x < 3)
+```
+
+Examples of using the purrr style for readability
+
+```{r}
+1:4 %>% map_dbl(~ .x / 2)
+1:3 %>% map_dbl(~ 2 + .x)
+1:3 %>% map_dbl(~ .x - 4)
+```
+
+```{r}
+# Or you can use them for more readable versions of function composition.
+1:3 %>% map_dbl(~ 3 * (.x + 2))
+```
+
+```{r}
+# If you need a lambda expression with two arguments, you can use .x and .y as the 
+# first and second arguments, respectively.
+map2_dbl(1:3, 1:3, ~ .x + .y)
+```
+
+```{r}
+# If you need more than two arguments, you can use .n for the nth argument:
+list(1:3, 1:3, 1:3) %>% pmap_dbl(~ .1 + .2 + .3) # or ..1 ..2 ..3
+```
 

@@ -9,45 +9,40 @@ columns in a data frame or tibble. We cannot, however, use the language without
 functionality from packages, so I will use the function `select` (from the `dplyr` package)
 that helps you select columns from a tibble or a data frame.
 
-Overview of selection features
 
-Tidyverse selections implement a dialect of R where operators make it easy to select variables:
+Overview of selection features:
 
-    : for selecting a range of consecutive variables.
+tidyselect implements a DSL for selecting variables. It provides helpers for selecting variables:
 
-    ! for taking the complement of a set of variables.
+    var1:var10: variables lying between var1 on the left and var10 on the right.
 
-    & and | for selecting the intersection or the union of two sets of variables.
+    starts_with("a"): names that start with "a".
 
-    c() for combining selections.
+    ends_with("z"): names that end with "z".
 
-In addition, you can use selection helpers. Some helpers select specific columns:
+    contains("b"): names that contain "b".
 
-    everything(): Matches all variables.
+    matches("x.y"): names that match regular expression x.y.
 
-    last_col(): Select last variable, possibly with an offset.
+    num_range(x, 1:4): names following the pattern, x1, x2, ..., x4.
 
-These helpers select variables by matching patterns in their names:
+    all_of(vars)/any_of(vars): matches names stored in the character vector vars. all_of(vars) will error if the variables aren't present; any_of(var) will match just the variables that exist.
 
-    starts_with(): Starts with a prefix.
+    everything(): all variables.
 
-    ends_with(): Ends with a suffix.
+    last_col(): furthest column on the right.
 
-    contains(): Contains a literal string.
+    where(is.numeric): all variables where is.numeric() returns TRUE.
 
-    matches(): Matches a regular expression.
+As well as operators for combining those selections:
 
-    num_range(): Matches a numerical range like x01, x02, x03.
+    !selection: only variables that don't match selection.
 
-These helpers select variables from a character vector:
+    selection1 & selection2: only variables included in both selection1 and selection2.
 
-    all_of(): Matches variable names in a character vector. All names must be present, otherwise an out-of-bounds error is thrown.
+    selection1 | selection2: all variables that match either selection1 or selection2.
 
-    any_of(): Same as all_of(), except that no error is thrown for names that don't exist.
-
-This helper selects variables with a function:
-
-    where(): Applies a function to all variables and selects those for which the function returns TRUE.
+When writing code inside packages you can substitute "var" for var to avoid R CMD check notes.
 
 
 ```{r}
@@ -73,7 +68,7 @@ tbl %>%
 ```
 
 ```{r}
-# _You can also use 'c()' to combine wanted selection of columns
+# You can also use 'c()' to combine wanted selection of columns
 tbl %>% 
   select(c(sample, min_weight))
 ```
@@ -132,7 +127,7 @@ tbl %>%
 ```
 
 ```{r}
-# But this does work using '-' but the order changes
+# But this does work using '-'
 tbl %>% 
   select(min_size: max_weight, -min_size)
 ```
@@ -204,6 +199,7 @@ tbl %>%
 
 ```{r}
 # Use contains() to select strings that contain the given string
+# Note that contains() doesn't know regex
 tbl %>% 
   select(contains("_s"))
 ```
@@ -303,7 +299,19 @@ tbl %>%
   select(where(\(x) is.numeric(x) && max(x) > 100))
 ```
 
+### Numeric range
 
+```{r}
+(data <- tribble(
+  ~var_1, ~var_2, ~var_3, ~var4,
+  0, 0, 0, 0
+))
+```
+
+```{r}
+data %>% 
+  select(num_range("var_", 2:3))
+```
 
 
 

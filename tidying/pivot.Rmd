@@ -120,7 +120,7 @@ billboard %>%
     names_prefix = "wk",
     names_transform = as.integer,
     values_to = "rank",
-    values_drop_na = TRUE,
+    values_drop_na = TRUE
   )
 ```
 
@@ -133,7 +133,7 @@ billboard %>%
     names_to = "week", 
     names_transform = readr::parse_number,
     values_to = "rank",
-    values_drop_na = TRUE,
+    values_drop_na = TRUE
   )
 ```
 
@@ -236,7 +236,7 @@ This dataset contains four pairs of variables (`x1` and `y1`, `x2` and `y2`, etc
 anscombe %>% 
   pivot_longer(
     cols = everything(), 
-  #  cols_vary = "slowest",  This throws an error!
+    cols_vary = "slowest",
     names_to = c(".value", "set"), 
     names_pattern = "(.)(.)"
   )
@@ -286,9 +286,9 @@ A similar process is applied when multiple input columns are mapped to the same 
 df %>% 
   pivot_longer(
     -id,
-    names_pattern = "(.).",
+    names_pattern = "(.)",
     names_to = ".value"
-  ) 
+  )
 
 # Note that using 'names_sep' requires a 'names_to' length > 1
 ```
@@ -471,6 +471,14 @@ daily %>%
   )
 ```
 
+```{r}
+# Using complete instead!
+daily %>% 
+  complete(day) %>% 
+  pivot_wider(names_from = day, values_from = value)
+```
+
+
 If multiple `names_from` columns are provided, `names_expand` will generate a Cartesian product of all possible combinations of the `names_from` values. Notice that the following data has omitted some rows where the percentage value would be `0`. `names_expand` allows us to make those explicit during the pivot.
 
 ```{r}
@@ -481,6 +489,7 @@ percentages <- tibble(
 )
 percentages
 ```
+
 ```{r}
 percentages %>% 
   pivot_wider(
@@ -491,11 +500,17 @@ percentages %>%
   )
 ```
 
+```{r}
+# Using complete instead!
+percentages %>% 
+  complete(year, type, fill = list(percentage = 0)) %>% 
+  pivot_wider(names_from = c(year, type), values_from = percentage)
+```
+
 A related problem can occur when there are implicit missing factor levels or combinations in the `id_cols`. In this case, there are missing rows (rather than columns) that you'd like to explicitly represent. For this example, we'll modify our `daily` data with a `type` column, and pivot on that instead, keeping `day` as an id column.
 
 ```{r}
-daily <- mutate(daily, type = factor(c("A", "B", "B", "A")))
-daily
+(daily <- mutate(daily, type = factor(c("A", "B", "B", "A"))))
 ```
 
 All of our `type` levels are represented in the columns, but we are missing some rows related to the unrepresented `day` factor levels.
@@ -506,7 +521,7 @@ daily %>%
     names_from = type, 
     values_from = value,
     values_fill = 0
-  )
+  ) 
 ```
 
 We can use `id_expand` in the same way that we used `names_expand`, which will expand out (and sort) the implicit missing rows in the `id_cols`.
@@ -521,7 +536,14 @@ daily %>%
   )
 ```
 
-
+```{r}
+# Using complete instead!
+daily %>% 
+  complete(day, type, fill = list(value = 0)) %>% 
+  pivot_wider(
+    names_from = type, 
+    values_from = value)
+```
 
 ### Unused columns
 
@@ -708,7 +730,6 @@ To see how this works, lets return to the simplest case of pivotting applied to 
 ```{r}
 relig_income
 ```
-
 
 ```{r}
 spec <- relig_income %>% 

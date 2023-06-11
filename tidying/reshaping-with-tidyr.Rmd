@@ -30,7 +30,7 @@ library(cowplot)
 ```
 
 ```{r}
-# Separate 'duration' column into value and unit
+# Separate 'duration' column into value and unit (legacy separate())
 netflix_df %>% 
   separate(
     duration, 
@@ -38,6 +38,16 @@ netflix_df %>%
     sep = " ", 
     convert = TRUE # converts value from char to int 
   )
+```
+
+```{r}
+# Separate with separate_wider_delim()
+# Note that we can't do the conversion with this
+netflix_df %>% 
+  separate_wider_delim(
+    duration, 
+    delim = " ", 
+    names = c("value", "unit"))
 ```
 
 #### **Columns with multiple values**
@@ -95,10 +105,19 @@ tvshow_df %>%
 ```
 
 ```{r}
+# Using separate_longer_delim()
+tvshow_df %>% 
+  separate_longer_delim(cast, delim = ", ") %>% 
+  rename(actor = cast) %>% 
+  arrange(actor)
+```
+
+```{r}
 # Count titles for each actor
 tvshow_df %>% 
-  separate_rows(cast, sep = ", ") %>%
-  rename(actor = cast) %>%  
+  separate_longer_delim(cast, delim = ", ") %>% 
+  rename(actor = cast) %>% 
+  arrange(actor) %>% 
   count(actor, sort = TRUE)
 ```
 
@@ -127,6 +146,12 @@ Separate the `ingredients` column so that for each drink each ingredient gets a 
   separate_rows(ingredients, sep = "; ") 
 ```
 
+```{r}
+# OR
+drink_df %>% 
+  separate_longer_delim(ingredients, delim = "; ")
+```
+
 Inspect the output of the previous step to find the separator that splits the `ingredients` column 
 into three columns: `ingredient`, `quantity`, and `unit`.
 Make sure to convert data types to numeric when possible.
@@ -142,6 +167,32 @@ drink_df %>%
     convert = TRUE
   ) %>% 
   replace_na(list(unit = "pcs")) # replaces NA for ingredients that have no unit
+```
+
+```{r}
+# separate_wider_delim fails (because of missing "unit" in oranges)
+drink_df %>% 
+  separate_longer_delim(ingredients, delim = "; ") %>%  
+  separate_wider_delim(ingredients, delim = " ", names = c("ingredient", "quantity", "unit"))
+```
+
+```{r}
+# Debug issue with too_few and too_many set to "debug"
+drink_df %>% 
+  separate_longer_delim(ingredients, delim = "; ") %>%  
+  separate_wider_delim(
+    ingredients, 
+    delim = " ", 
+    names = c("ingredient", "quantity", "unit"), too_few = "debug")
+```
+```{r}
+# Fix issue by correct alignment and NA
+drink_df %>% 
+  separate_longer_delim(ingredients, delim = "; ") %>%  
+  separate_wider_delim(
+    ingredients, 
+    delim = " ", 
+    names = c("ingredient", "quantity", "unit"), too_few = "align_start")
 ```
 
 Group the data by `ingredient` and `unit`.
@@ -162,6 +213,18 @@ drink_df %>%
 ```
 
 ```{r}
+# OR
+drink_df %>% 
+  separate_longer_delim(ingredients, delim = "; ") %>%  
+  separate_wider_delim(
+    ingredients, 
+    delim = " ", 
+    names = c("ingredient", "quantity", "unit"), too_few = "align_start") %>% 
+  replace_na(list(unit = "pcs")) %>% 
+  mutate(quantity = as.double(quantity))
+```
+
+```{r}
 # Calculate the total quantity of each ingredient: using group_by() and summarise()
 drink_df %>% 
   separate_rows(ingredients, sep = "; ") %>% 
@@ -175,6 +238,19 @@ drink_df %>%
   group_by(ingredient, unit) %>% 
   summarise(quantity = sum(quantity)) %>% 
   arrange(desc(quantity))
+```
+
+```{r}
+# OR
+drink_df %>% 
+  separate_longer_delim(ingredients, delim = "; ") %>%  
+  separate_wider_delim(
+    ingredients, 
+    delim = " ", 
+    names = c("ingredient", "quantity", "unit"), too_few = "align_start") %>% 
+  replace_na(list(unit = "pcs")) %>% 
+  mutate(quantity = as.double(quantity)) %>%
+  summarise(quantity = sum(quantity), .by = c(ingredient, unit)) # using new dplyr .by
 ```
 
 #### **Missing values**
@@ -194,21 +270,25 @@ Spread the values in the director column over separate rows.
 
 ```{r}
 # Separate directors to individual rows, note NAs
-director_df %>% 
-  separate_rows(director, sep = ", ")
+director_df %>% separate_rows(director, sep = ", ")
+```
+
+```{r}
+# OR
+director_df %>% separate_longer_delim(director, delim = ", ")
 ```
 
 ```{r}
  # Count the number of movies per director
 director_df %>% 
-  separate_rows(director, sep = ", ") %>% 
+  separate_longer_delim(director, delim = ", ") %>% 
   count(director, sort = TRUE)
 ```
 
 ```{r}
  # Count the number of movies per director, drop NAs
 director_df %>% 
-  separate_rows(director, sep = ", ") %>% 
+  separate_longer_delim(director, delim = ", ") %>% 
   drop_na(director) %>% 
   count(director, sort = TRUE)
 ```
@@ -250,7 +330,7 @@ sales_df %>%
   ggplot(aes(quarter, sales, color = year, group = year)) +
     geom_line(size = 2) +
  scale_y_continuous(
-    expand = expansion(mult = c(0, 0)),
+    expand = expansion(mult = c(0.1, 0)),
     breaks = seq(12000, 24000, 2000), 
     limits = c(12000, 24000)
     ) +
@@ -291,7 +371,27 @@ in the Rpubs so I will use that later together with my other country data to cre
 (country_to_continent_df <- readRDS(here::here("tidying", "datasets", "Nuclear_data", "country_to_continent.rds")))
 ```
 
+
 ```{r}
+# Wrangle country_to_continent_df
+(country_to_continent_slim <-
+   country_to_continent_df %>% 
+   select(country = name, region, country_code = alpha.3) %>%
+   mutate(country = 
+            case_match(country, # using NEW case_match from dplyr
+              "United States of America" ~ "United States",
+              "United Kingdom of Great Britain and Northern Ireland" ~ "United Kingdom",
+              "Korea (Democratic People's Republic of)" ~ "North Korea",
+              "Korea, Republic of" ~ "South Korea",
+              .default =  country
+            )
+   ) %>% 
+   mutate(region = if_else(country == "Antarctica", "Antarctica", region))
+)
+```
+
+```{r}
+# OR case_when
 # Wrangle country_to_continent_df
 (country_to_continent_slim <-
    country_to_continent_df %>% 
@@ -327,7 +427,6 @@ country_to_continent_slim %>%
     region, 
     wt = total_bombs, 
     name = "total_bombs", 
-    .drop = FALSE, 
     sort = TRUE
   )
 ```
@@ -338,7 +437,7 @@ country_to_continent_slim %>%
   left_join(nukes_1962_df, by = "country") %>% 
   select(-date) %>% 
   replace_na(list(total_bombs = 0L)) %>% 
-  count(region, wt = total_bombs, name = "total_bombs", .drop = FALSE) %>% 
+  count(region, wt = total_bombs, name = "total_bombs") %>% 
   ggplot(aes(fct_reorder(region, total_bombs), total_bombs, fill = region)) +
   labs(x = "Region", y = "Total number of bombs") +
   geom_col() +
@@ -367,7 +466,7 @@ You’ve been given a version of the Nuclear Explosion DataBase (NEDB) where cou
 
 ```{r}
 # Pivot nuke_wide_country_df longer
-nuke_df %>% pivot_longer(-year, names_to = "country", values_to = "n_bombs") 
+nuke_df %>% pivot_longer(-year, names_to = "country", values_to = "n_bombs", ) 
 ```
 
 ```{r}
@@ -481,7 +580,12 @@ obesity_df
 ```{r}
 # Pivot
 obesity_df %>% 
-  pivot_longer(-c(country, both_sexes), names_to = "sex", values_to = "pct_obese") %>% 
+  pivot_longer(
+    -c(country, both_sexes), 
+    names_to = "sex", 
+    values_to = "pct_obese"
+    ) %>%
+  mutate(country = factor(country)) %>% 
   relocate(both_sexes, .after = last_col()) # Putting the both_sexes column far right
 ```
 
@@ -491,6 +595,8 @@ Create a scatterplot with `pct_obese` per country colored by `sex.` The `country
 # Create scatterplot
 obesity_df %>% 
   pivot_longer(-c(country, both_sexes), names_to = "sex", values_to = "pct_obese") %>% 
+  relocate(both_sexes, .after = last_col()) %>%  
+  mutate(country = factor(country)) %>% 
   ggplot(aes(pct_obese, fct_reorder(country, both_sexes), color = sex)) +
   geom_point() +
   scale_x_continuous(
@@ -523,7 +629,7 @@ saveRDS(bond_df, here::here("tidying", "datasets", "bond_df.rds"))
 ```{r}
 # Fix column names
 (bond_df %<>%  
-  rename_with(.cols = -Bond, .fn = ~str_extract(.x, "\\d+")))
+  rename_with(.cols = -Bond, .fn = \(x) str_extract(x, "\\d+")))
 ```
 
 ```{r}
@@ -569,7 +675,7 @@ bond_df %>%
     values_drop_na = TRUE,
     names_transform = list(decade = factor)
   ) %>% 
-  mutate(decade = str_c(decade, "s")) %>% 
+  mutate(decade = str_c(decade, "'s")) %>% 
   ggplot(aes(decade, n_movies, fill = Bond)) + 
   geom_col() +
   scale_y_continuous(
@@ -609,10 +715,12 @@ bird_df
 
 ```{r}
 # Pivot data
+# Has empty rows in 'species'
+# Note this is not quite the correct table (wrong year?)
 bird_df %>% 
   pivot_longer(
-    cols = everything(), 
-    names_prefix = "points?_", # Note that one column says point_3 and not points_3, hence the regexp
+    everything(), 
+    names_prefix = "points?_", # Note that one column says point_3 and not points_3, hence the regex
     names_to = "points", 
     values_to = "species",
     names_transform = list(points = as.integer, species = as.character),
@@ -626,7 +734,7 @@ Calculate the total_points each species got.
 # Calculate points per species (using dplyr::count)
 bird_df %>% 
   pivot_longer(
-    cols = everything(), 
+    everything(), 
     names_prefix = "points?_",
     names_to = "points", 
     values_to = "species",
@@ -653,32 +761,21 @@ Pivot `stock_df` so that the `integer` columns `year` and `week` are created fro
   read.csv(
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vRpPo4a7Uj9jAtdmEC3p1YixmewdMQKKsKbuu3CoF4COKX7j-y0FpiRzxLGdaWVmb7mrvWOWEaph558/pub?gid=1049805716&single=true&output=csv"
     ))
-```
 
-```{r}
-# Fix column names
-(stock_df %<>% 
-   rename_with(.cols = -company, .fn = ~str_remove(.x, "X")))
-```
-
-```{r}
-# Save data
 saveRDS(stock_df, file = here::here("tidying", "datasets", "stock_df"))
 ```
 
 ```{r}
-# Pivot data
+# Fix column names and pivot data
 stock_df %>% 
+  rename_with(\(x) str_remove(x, "X")) %>% 
   pivot_longer(
-    -company,
-    names_to = c("year", "week"),
-    names_sep = "_week", 
+    -company, 
+    names_sep = c("_week"), 
+    names_to = c("year", "week"), 
     values_to = "price",
-    names_transform = list(
-      year = as.integer, 
-      week = as.integer
+    names_transform = list(year = as.integer, week = as.integer)
     )
-  )
 ```
 
 Create a line plot where the `price` is shown per `week` and color by `company.` The year variable has been dealt with for you.
@@ -686,16 +783,14 @@ Create a line plot where the `price` is shown per `week` and color by `company.`
 ```{r}
 # Plot
 stock_df %>% 
+  rename_with(.fn = \(x) str_remove(x, "X")) %>% 
   pivot_longer(
-    -company,
-    names_to = c("year", "week"),
-    names_sep = "_week", 
+    -company, 
+    names_sep = c("_week"), 
+    names_to = c("year", "week"), 
     values_to = "price",
-    names_transform = list(
-      year = as.integer, 
-      week = as.integer
-    )
-  ) %>% 
+    names_transform = list(year = as.integer, week = as.integer)
+    ) %>% 
 ggplot(aes(week, price, group = company, color = company)) +
   geom_line(size = 1) +
   scale_y_continuous(
@@ -742,9 +837,11 @@ saveRDS(space_dogs_df, file = here::here("tidying", "datasets", "space_dogs_df.r
      -c(date, result),
      names_sep = "_",
      # Complete the names_to argument to re-use the first part of the column headers
-     names_to = c(".value", "dog_id"),
+     names_to = c(".value", "dog_id"), # This doesn't work here as the NA's are empty strings
      values_drop_na = TRUE
-   ))
+   ) %>% 
+   filter(name != "")
+)
 ```
 
 Notice how the “name” and “gender” parts of the old column headers were reused in two new columns. The second part of the old headers is found as a variable in the dog_id column. Since most launches had two dogs, the number of rows almost doubled.
@@ -783,7 +880,7 @@ Uncount the data so that per `breed`, each dog gets a row and an ID. The ID shou
 ```{r}
 # Reverse counting using uncount
 dog_df %>% 
-uncount(weights = n_participants, .id = "dog_id") 
+  uncount(weights = n_participants, .id = "dog_id") 
 ```
 
 May the prettiest dog win! Uncounting data isn’t something you’ll do every day, but in specific cases it’s just what you need.
@@ -811,8 +908,7 @@ space_dogs_tidy2 %>%
     names_from = dog_id, 
     names_prefix = "gender_",
     values_from = gender
-  ) %>% 
-  mutate(across(where(is.character), ~na_if(.x, "")))
+  )
 ```
 
 Drop rows that contain NA values.
@@ -825,7 +921,6 @@ space_dogs_tidy2 %>%
     names_prefix = "gender_",
     values_from = gender
   ) %>% 
-  mutate(across(where(is.character), ~na_if(., ""))) %>% 
   drop_na()
 ```
 
@@ -839,7 +934,6 @@ space_dogs_tidy2 %>%
     names_prefix = "gender_",
     values_from = gender
   ) %>% 
-  mutate(across(where(is.character), ~na_if(., ""))) %>% 
   drop_na() %>% 
   mutate(same_gender = gender_1 == gender_2)
 ```
@@ -852,9 +946,8 @@ space_dogs_tidy2 %>%
     names_prefix = "gender_",
     values_from = gender
   ) %>% 
-  mutate(across(where(is.character), ~na_if(., ""))) %>% 
   drop_na() %>% 
-  mutate(same_gender = gender_1 == gender_2) %>% 
+  mutate(same_gender = gender_1 == gender_2) %>%
   summarise(percentage_same_gender = mean(same_gender))
 ```
 
@@ -887,13 +980,7 @@ Use the `ggplot()` function to create a plot with the `temperature` over the `di
 # Plot
 planet_df %>% 
   pivot_wider(names_from = metric, values_from = value) %>% 
-  ggplot(
-    aes(
-      distance_to_sun, 
-      temperature, 
-      size = diameter
-      )
-    ) +
+  ggplot(aes(distance_to_sun, temperature, size = diameter)) +
   geom_point() +
   geom_text(aes(label = planet), vjust = -1, hjust = -0.01) +
   scale_y_continuous(
@@ -1056,6 +1143,7 @@ like this:
 
 ```{r}
 # With NAs
+# Now we see the 14 dogs at 1951 also!
 space_df %>% 
   complete(year, species) %>% 
   ggplot(aes(year, n_in_space, color = species)) +
@@ -1144,8 +1232,7 @@ medal_df %>%
     year, 
     medal, 
     team, 
-    fill = 
-      list(sport = "who knows?", name = "nobody!")
+    fill = list(sport = "who knows?", name = "nobody!")
   )
 ```
 
@@ -1155,8 +1242,7 @@ medal_df %>%
     year, 
     medal, 
     team, 
-    fill = 
-      list(sport = "who knows?", name = "nobody!")
+    fill = list(sport = "who knows?", name = "nobody!")
   ) %>% 
   count(year, team, sort = TRUE) 
 ```
@@ -1306,7 +1392,7 @@ medal_df %>%
     fill = list(medals_per_participant = 0)
   ) %>% 
   ggplot(aes(year, medals_per_participant, color = continent)) + 
-  geom_line(size = 2, alpha = 0.75) + 
+  geom_line(size = 1, alpha = 0.75) + 
   facet_grid(season ~ continent) +
   theme(legend.position = "none")
 ```
@@ -1355,7 +1441,7 @@ patient_df %>%
   ) %>% 
   group_by(patient) %>% 
   complete(date = full_seq(date, period = 1)) %>% 
-  fill(status) %>% 
+  fill(status, .direction = "down") %>% 
   ungroup() 
 ```
 
@@ -1373,7 +1459,7 @@ patient_df %>%
   ) %>% 
   group_by(patient) %>% 
   complete(date = full_seq(date, period = 1)) %>% 
-  fill(status) %>% 
+  fill(status, .direction = "down") %>% 
   ungroup() %>% 
   filter(status == "infected") %>% 
   count(date, name = "n_sick") %>% 
