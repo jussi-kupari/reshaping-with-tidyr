@@ -1,0 +1,290 @@
+---
+title: "R4DS-QR QuickRef: Ch 10 -- Working with Factors: forcats"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+#### Creating factors
+```{r}
+# If you don't specify levels, you get one per unique element
+factor(c("A", "B", "C"))
+```
+
+```{r}
+# Levels defined explicitly
+factor(c("A", "B", "C"), levels = c("A", "B", "C", "D"))
+```
+
+
+```{r}
+# Levels defined explicitly in different order
+factor(c("A", "C", "B"), levels = c("D", "B", "C", "A"))
+```
+
+```{r}
+# I you have an element not defined in the levels, you get NA
+factor(c("A", "B", "C", "D"), levels = c("A", "B", "C"))
+```
+
+The factor() function is usually the right choice for creating factors. The function 
+is not generic, however, so if you want a way to translate a data structure you have 
+implemented yourself, one that needs a specific method to do so, then you might want to 
+specialize as_factor() from forcats.
+
+If you specialize as_factor(), you can do anything you want, but on normal vectors, 
+as_factor() works similarly to as.factor() from base R. The two functions differ, 
+though, in how they set levels. If you use as.factor(), the levels will be sorted.
+
+```{r}
+# Levels ordered alphabetically
+(f1 <- as.factor(c("C", "B", "B", "A", "D")))
+```
+
+```{r}
+# Order is as it is given
+(f2 <- as_factor(c("C", "B", "B", "A", "D")))
+```
+
+#### Concatenation
+
+If you have two factors, then you can concatenate them using fct_c(). The levels of the 
+resulting factor are the union of the levels of the input factors. The order of the levels 
+depends on the order of the input factors. The levels in the first factor go first, then 
+the levels in the second. If the factors share levels, then the order is determined by the 
+first vector
+
+```{r}
+f1
+f2
+```
+
+```{r}
+# The order of the factors depends on the order they are concatenated
+fct_c(f1, f2)
+fct_c(f2, f1)
+```
+
+```{r}
+# A factor with levels not found in f1
+(f3 <- as_factor(c("X", "Y", "A")))
+```
+
+```{r}
+# If f1 is first, the unique levels of f3 are included at the end
+fct_c(f1, f3)
+```
+
+```{r}
+# If f3 is first, f3 levels come first
+fct_c(f3, f1)
+```
+
+```{r}
+# You can concatenate more than two factor vectors. The previous rules apply
+fct_c(f3, f2, f1)
+```
+
+If you have several factors that do not have the same levels, but you want them to 
+have (without concatenating them), you can use fct_unify(). It takes a list of factors 
+and gives you a list of factors where they all have as levels the union of the levels of 
+the input.
+
+```{r}
+fct_unify(list(f1, f2, f3))
+```
+
+#### Projection
+
+It happens that your categorical data is too fine-grained and you want to group 
+categories into larger classes. If so, the function you want is fct_collapse().
+It lets you  map your existing levels to new levels. Its first argument is a 
+factor, and after that, you  provide named arguments. As parameters to the 
+named arguments, you must provide a list of level names. Each name becomes 
+a level, and that level will contain the elements in the list you give as the argument.
+
+```{r}
+fct_collapse(
+  fct_c(f3, f1),
+  a = c("A", "X"),
+  b = c("B", "Y"),
+  c = c("C", "D")
+)
+```
+
+```{r}
+# You do not need to remap all levels. Those you do not map will stay as they were.
+fct_collapse(
+  fct_c(f3, f1),
+  a = c("A", "X"),
+  b = c("B", "Y"),
+)
+```
+
+If you only want to rename and not collapse levels, you can use fct_recode().
+
+```{r}
+# Renaming some levels
+f1
+fct_recode(f1, a = "A", b = "B")
+```
+
+```{r}
+# Using fct_recode or fct_collapse
+fct_recode(f1, X = "A", X = "B", Y = "C", Y = "D")
+fct_collapse(f1, X = c("A", "B"), Y = c("C", "D"))
+```
+
+If you want to reduce the number of levels based on how many elements they have, 
+rather than merge levels in an explicitly specified way, then you can use fct_lump(). You 
+can merge levels such that you keep the n levels with the most elements, for example, for 
+n = 5 and n = 2:
+
+```{r}
+f <- factor(sample(LETTERS[1:10], 20, replace = TRUE), levels = LETTERS[1:10])
+f
+table(f)
+```
+
+```{r}
+f %>% fct_lump(n = 5, other_level = "X") %>% table()
+```
+
+```{r}
+f %>% fct_lump(n = 2, other_level = "X") %>% table()
+```
+
+You see more than five and two levels here, even though we called fct_lump() with 
+n = 5 and n = 2. If there are several levels with the same number of elements, the 
+function doesn’t pick random ones to keep. You get all with the highest occurrences.
+
+Instead of picking the number of categories you want, you can require that they 
+contain at least or at most a fraction of the data. 
+
+```{r}
+f %>% fct_lump(prop = 0.1, other_level = "X") %>% table()
+```
+
+If you want the categories that contain less than 10% of the data, you use prop as well 
+but with a negative value.
+
+```{r}
+f %>% fct_lump(prop = -0.1, other_level = "X") %>% table()
+```
+
+The fct_other() lets you pick a list of categories to keep or drop. If you 
+keep categories, then all the others are put in the same “other” category. If you drop 
+categories, then those you drop are placed in an “other” category. You can name the 
+“other” category using the argument other_level.
+
+```{r}
+f %>% fct_other(keep = LETTERS[1:5], other_level = "X")
+```
+
+Sometimes, what you want is even simpler. You have levels that are not found in the 
+actual data. You can get rid of the empty levels using fct_drop().
+
+```{r}
+f1
+levels(f1) <- LETTERS[1:10]
+```
+
+```{r}
+fct_drop(f1)
+```
+
+#### Adding Levels
+
+With the fct_expand() function, you can add levels that are not in your factor, and 
+any levels that are already in the data will be ignored.
+
+```{r}
+f1
+f3
+```
+
+```{r}
+fct_expand(f1, levels(f3))
+```
+
+You can use fct_na_value_to_level() to map all missing data into a new 
+category:
+
+```{r}
+f2
+```
+
+```{r}
+fna <- f2
+fna[2] <- NA
+fna[3] <- NA
+fna
+```
+
+```{r}
+fct_na_value_to_level(fna, level = "Missing")
+```
+
+#### Reorder Levels
+
+If you have a factor created with factor() without specifying the levels, then the 
+levels will be all elements seen in the input sorted in their natural order.
+
+```{r}
+f <- factor(sample(LETTERS[1:5], 10, replace = TRUE))
+f
+```
+
+The function fct_inorder() will order your levels to match the order that the 
+categories are seen in the data—the order you get from as_factor().
+```{r}
+# Order is the order of appearance
+fct_inorder(f)
+```
+
+The functions for reordering levels can also make the factors ordered.
+
+```{r}
+# Note the odered levels
+fct_inorder(f, ordered = TRUE)
+```
+
+If you want to sort the levels, you do not need forcats functions. The plain old 
+factor() will do nicely.
+
+```{r}
+# Base R does the trick
+factor(f, levels = sort(levels(f)))
+```
+
+```{r}
+factor(f, ordered = TRUE)
+factor(f, levels = rev(levels(f)), ordered = TRUE)
+```
+
+You can order levels by their frequency in the factor using fct_infreq():
+
+```{r}
+# Using fct_count and some dplyr to get a table of freqs
+fct_count(f) %>% arrange(desc(n))
+```
+
+```{r}
+# See how fct_infreq sorts the levels
+# Order and reverse oder
+fct_infreq(f)
+fct_infreq(f, ordered = TRUE)
+fct_rev(fct_infreq(f, ordered = TRUE))
+```
+
+In the last example, I reversed the levels, so the order is smallest to largest rather 
+than largest to smallest. The function fct_rev() reverses the levels; a frequent use for 
+this is when you plot with an axis given by the factor. There, the order is given by the 
+levels, and you might want it reversed.
+
+
+
+
+

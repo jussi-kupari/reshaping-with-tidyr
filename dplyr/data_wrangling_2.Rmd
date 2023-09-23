@@ -1,0 +1,317 @@
+---
+title: "Data Wrangling 1"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+(judgments <- read_tsv("data/judgments.tsv"))
+```
+
+```{r}
+# Ugly and convoluted, first column is a factor! 
+as.data.frame(table(judgments[["condition"]]))
+```
+
+```{r}
+# Better way
+judgments %>% 
+  count(condition)
+```
+
+```{r}
+# Sort results
+judgments %>% 
+  count(condition, sort = TRUE)
+```
+
+```{r}
+# Previous is a shortcut for grouping and summarising
+judgments %>% 
+  group_by(condition) %>% 
+  summarise(n = n(), .groups = "drop") # The dropping is only required when several groupings
+```
+
+```{r}
+# Previous iusing the .by version of grouping
+judgments %>% 
+  summarise(n = n(), .by = condition)
+```
+
+When counting is not enough
+
+
+    summarise returns as many rows as groups - one if no groups.
+    mutate returns as many rows as given.
+
+```{r}
+judgments %>% 
+  summarise(
+    min = min(mood_pre, na.rm = TRUE), 
+    max = max(mood_pre, na.rm = TRUE)
+    )
+```
+
+```{r}
+judgments %>%
+  mutate(
+    min = min(mood_pre, na.rm = TRUE), 
+    max = max(mood_pre, na.rm = TRUE), .before = 1
+    )
+```
+
+If we want the min/max per condition
+```{r}
+judgments %>% 
+  summarise(
+    min = min(mood_pre, na.rm = TRUE), 
+    max = max(mood_pre, na.rm = TRUE),
+    .by = condition # or group_by(condition)
+    )
+```
+
+```{r}
+judgments %>% 
+  mutate(
+    min = min(mood_pre, na.rm = TRUE), 
+    max = max(mood_pre, na.rm = TRUE), 
+    .by = condition, 
+    .before = 1
+  )
+```
+
+Within one summarise statement
+```{r}
+judgments %>% 
+  summarise(
+    n_rows = n(), 
+    n_subject = n_distinct(subject),
+    first_id = first(subject),
+    last_id = last(subject),
+    mean = mean(mood_pre, na.rm= TRUE),
+    id_10 = nth(subject, n = 10)
+  )
+```
+
+group_by() results in a persistent group
+
+    Each call to the tibble will respect the grouping
+    Summarize will strip away one level of grouping
+
+Grouping by more than one variable -> Peeling effect
+
+For variable grouping, one is peeled off from the right 
+
+Ask explicitly to ungroup data
+
+    by ungroup()
+    by .groups argument to keep or drop groups.
+
+```{r}
+# One grouping var remains
+judgments %>% 
+  group_by(condition, gender) %>% 
+  summarise(n_ans = n_distinct(STAI_post_1_1)) %>% 
+  group_vars(
+  )
+```
+
+```{r}
+# All groupings dropped
+judgments %>% 
+  group_by(condition, gender) %>%  
+  summarise(n_ans = n_distinct(STAI_post_1_1),
+            .groups = "drop") %>% 
+  group_vars()
+```
+
+
+```{r}
+# Or, use ungroup to drop remaining group vars
+judgments %>% 
+  group_by(condition, gender) %>%  
+  summarise(n_ans = n_distinct(STAI_post_1_1)) %>% 
+  ungroup() %>% 
+  group_vars()
+```
+
+
+Arranging values within groups
+arrange() can sort values by multiple columns
+
+```{r}
+# Arrange ignores groupings!
+judgments %>%  
+  mutate(mood_pre_cat = case_when(
+    mood_pre < 25  ~ "poor", 
+    mood_pre > 75 ~ "great",
+    .default = "normal")) %>% 
+  group_by(mood_pre_cat) %>%  
+  arrange(desc(mood_post)) %>%  
+  select(mood_pre_cat, mood_post) %>%  
+  distinct()
+```
+
+For arrange() and grouping
+
+Solution -> Use .by_group = TRUE
+
+```{r}
+# use .by_group to arrange by groupings
+judgments %>%  
+  mutate(mood_pre_cat = case_when(
+    mood_pre < 25  ~ "poor", 
+    mood_pre > 75 ~ "great",
+    .default = "normal")) %>% 
+  group_by(mood_pre_cat) %>%  
+  arrange(desc(mood_post), .by_group = TRUE) %>%  
+  select(mood_pre_cat, mood_post) %>%  
+  distinct()
+```
+
+But, you are better off using arrange with two variables, like below
+```{r}
+judgments %>%  
+  mutate(mood_pre_cat = case_when(
+    mood_pre < 25  ~ "poor", 
+    mood_pre > 75 ~ "great",
+    .default = "normal")) %>% 
+  group_by(mood_pre_cat) %>%  
+  arrange(mood_pre_cat, desc(mood_post)) %>%  
+  select(mood_pre_cat, mood_post) %>%  
+  distinct()
+```
+
+Dealing with multiple return values per group
+
+    range() returns min and max
+    summarise() duplicates the key names
+
+```{r}
+# Summarise keeps groupings here
+judgments %>% 
+  group_by(condition, gender) %>% 
+  summarise(range = range(mood_pre, na.rm = TRUE), n = n()) 
+```
+
+"Warning: Returning more (or less) than 1 row per `summarise()` group was deprecated in dplyr 1.1.0.
+Please use `reframe()` instead.
+When switching from `summarise()` to `reframe()`, remember that `reframe()` always returns an ungrouped data frame and adjust accordingly."
+
+Using `reframe`
+
+reframe() creates a new data frame by applying functions to columns of an existing data frame. It is most similar to summarise(), with two big differences:
+
+    reframe() can return an arbitrary number of rows per group, while summarise() reduces each group        down to a single row.
+
+    reframe() always returns an ungrouped data frame, while summarise() might return a grouped or           rowwise data frame, depending on the scenario.
+
+We expect that you'll use summarise() much more often than reframe(), but reframe() can be particularly helpful when you need to apply a complex function that doesn't return a single summary value. 
+
+```{r}
+judgments %>% 
+  group_by(condition, gender) %>% 
+  reframe(range = range(mood_pre, na.rm = TRUE), n = n())
+```
+
+More advanced but useful: 3 quantiles
+
+```{r}
+# Summarise three values per group
+judgments %>% 
+  filter(!is.na(mood_pre)) %>% 
+  group_by(condition, gender) %>% 
+  reframe(
+    quan = quantile(mood_pre, c(0.25, 0.5, 0.75)),
+    q = c(0.25, 0.5, 0.75),
+    n = n())
+```
+
+Grouping and mutate()
+
+```{r}
+judgments %>% 
+  group_by(condition) %>% 
+  mutate(n = n()) %>% 
+  relocate(condition, n)
+```
+
+Use judgments to compute basic statistics for all moral dilemma columns considering the conditions:
+
+    Compute the mean, the median, the standard deviation as well as min and max values.
+    Find meaningful short names for the functions such as med for median().
+    Assign judgments_condition_stats to the results.
+
+```{r}
+judgments %>% 
+  summarise(
+    across(contains("dilemma"), 
+           list(mean = mean,
+                median = median,
+                sd = sd,
+                min = min,
+                max = max),
+           .names = "{.fn}.{.col}")
+  )
+```
+
+In judgments:
+
+    Find the number of subjects by age, gender and condition, e.g. how many 20 years of age females are     in the stress group.
+    
+    Sort the resulting tibble such that the condition that contains the most populous group is sorted       first (i.e. stress or control appear together).
+    Ensure that the resulting tibble does not contain groups.
+
+```{r}
+# Using .by
+judgments %>%
+  summarise(n = n(), .by = c(condition, gender, age)) %>% 
+  arrange(condition, gender, desc(n)) # manully pealed off age
+```
+
+
+```{r}
+# Using normal group_by
+judgments %>% 
+  group_by(condition, gender, age) %>% 
+  summarise(n = n()) %>% 
+  arrange(desc(n), .by_group = TRUE) %>% 
+  ungroup()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

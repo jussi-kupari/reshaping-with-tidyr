@@ -3,3 +3,1137 @@ title: "R4DS-Quickref: Ch8 --Manipulating Data Frames: dplyr"
 output: html_notebook
 ---
 
+The usual way that you use dplyr is similar to how you use purrr. You string together 
+a sequence of actions in a pipeline, with the actions separated by the %>% operator. The 
+difference between the two packages is that the purrr functions work on sequences 
+while the dplyr functions work on data frames.
+
+### Selecting columns
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# A tibble version of iris
+(iris_tbl <- as_tibble(iris))
+```
+
+```{r}
+# Basic base-R selecting with '$' or [[
+head(iris_tbl$Species)
+head(iris_tbl[["Species"]])
+```
+
+The `$` or `[[` notation doesn't work well with pipelines. For this you use the `dplyr::select()` function.
+
+
+```{r}
+# Select
+iris_tbl %>% 
+  select(Sepal.Length, Species) 
+```
+
+You can negate by using ! or -
+```{r}
+# Negate/complement with ! or -
+iris_tbl %>% 
+  select(!Species)
+```
+
+```{r}
+# With -
+iris_tbl %>% 
+  select(-Species)
+```
+
+But ! and - do not behave exactly the same way when you provide more than one 
+argument to select().
+
+```{r}
+# This results in the union of the two, so all columns are included!
+iris_tbl %>% 
+  select(!Species, !Sepal.Length) # This is the union of the two selections
+```
+
+```{r}
+# This removes both columns
+iris_tbl %>% 
+  select(-Species, -Sepal.Length)
+```
+
+```{r}
+# This also negates both columns
+iris_tbl %>% 
+  select(!c(Species, Sepal.Length))
+```
+
+```{r}
+# And this
+iris_tbl %>% 
+  select(-c(Species, Sepal.Length))
+```
+
+You can also use numeric indices, but this is less informative and more error prone.
+```{r}
+# Using column numbers
+iris_tbl %>% 
+  select(1, 3, 5) 
+```
+
+```{r}
+# Numbers with c()
+iris_tbl %>% 
+  select(c(1, 3, 5)) 
+```
+
+```{r}
+# Using a sequence of numbers
+iris_tbl %>% 
+  select(1:3)
+```
+
+You can select a continuous range of column names using `:`
+
+```{r}
+iris_tbl %>% 
+  select(Petal.Length:Species)
+```
+
+
+You can use any of the `selection helpers`!
+
+    : for selecting a range of consecutive variables.
+
+    ! for taking the complement of a set of variables.
+
+    & and | for selecting the intersection or the union of two sets of variables.
+
+    c() for combining selections.
+
+In addition, you can use selection helpers. Some helpers select specific columns:
+
+    everything(): Matches all variables.
+
+    last_col(): Select last variable, possibly with an offset.
+
+    group_cols(): Select all grouping columns.
+
+Other helpers select variables by matching patterns in their names:
+
+    starts_with(): Starts with a prefix.
+
+    ends_with(): Ends with a suffix.
+
+    contains(): Contains a literal string.
+
+    matches(): Matches a regular expression.
+
+    num_range(): Matches a numerical range like x01, x02, x03.
+
+Or from variables stored in a character vector:
+
+    all_of(): Matches variable names in a character vector. All names must be present, otherwise an out-of-bounds error is thrown.
+
+    any_of(): Same as all_of(), except that no error is thrown for names that don't exist.
+
+Or using a predicate function:
+
+    where(): Applies a function to all variables and selects those for which the function returns TRUE.
+
+
+```{r}
+# Using a combination here
+iris_tbl %>% 
+  select(where(is.factor) | starts_with("P"))
+```
+
+```{r}
+# Regular expression match
+iris_tbl %>% 
+  select(matches("\\.W"))
+```
+
+```{r}
+# using `contains`
+iris_tbl %>% 
+  select(contains("W"))
+```
+
+```{r}
+# Select grouped columns
+iris_tbl %>% 
+  group_by(Species) %>% 
+  select(group_cols())
+```
+
+You can rename within the `select()` call. 
+
+```{r}
+# Rename using select()
+iris_tbl %>% select(petal_length = Petal.Length)
+```
+
+If you just want to rename certain columns but keep all columns, you can use
+`select()`with `everything()`, or `rename()`
+
+```{r}
+# select() and everything()
+iris_tbl %>% 
+  select(sepal_length = Sepal.Length, everything())
+```
+
+```{r}
+# rename
+iris_tbl %>% 
+  rename(sepal_length = Sepal.Length)
+```
+
+### Filter
+
+While `select()` extracts a subset of columns, the `filter()` function does the same 
+for rows.
+
+```{r}
+# Use `distinct` to get unique values for selected column or column combos
+# Here we look at the Species
+iris_tbl %>% distinct(Species)
+```
+Filter rows where `Species` is "setosa"
+```{r}
+# Basic filter
+iris_tbl %>% 
+  filter(Species == "setosa")
+```
+
+You can combine `select` and `filter`.
+
+```{r}
+iris_tbl %>% 
+  filter(Species == "setosa") %>% 
+  select(ends_with("Length"), Species)
+```
+
+We can filter with more than one column
+```{r}
+iris_tbl %>% 
+  filter(Sepal.Length > 5, Petal.Width < 0.4) 
+```
+
+```{r}
+# Same as above
+iris_tbl %>% 
+  filter(Sepal.Length > 5 & Petal.Width < 0.4)
+```
+
+```{r}
+# This is the union using '|'
+iris_tbl %>% 
+  filter(Sepal.Length > 5 | Petal.Width < 0.4) 
+```
+
+
+We can also use functions as a predicate, for example, the `between()` function to 
+select numbers in a given range.
+
+```{r}
+# Using 'between'
+iris_tbl %>% 
+ filter(between(Sepal.Width, 2, 2.5))
+```
+
+We cannot use the functions `starts_with()`, `ends_with()`, etc. that we can use with 
+`select()`. This does not mean, however, that we cannot filter rows using string patterns. 
+We just need different functions. For example, we can use `str_starts()` from the 
+`stringr` package. 
+
+```{r}
+# Using a 'stringr' function to filter rows per column
+iris_tbl %>% 
+  filter(str_starts(Species, "v"))
+```
+
+
+```{r}
+# str_ends
+iris_tbl %>% 
+  filter(str_ends(Species, "r"))
+```
+
+The basic `filter` function works over one column. To apply the filter over several of even
+all column you need to use `if_all` or `if_any`.
+
+Note that the previous `filter_all`, `filter_if`, `filter_at` have been superseded by this.
+I will show some old style code for comparison.
+
+```{r}
+# Old way with scoped filter versions (here filter_all)
+iris_tbl %>% 
+ select(-Species) %>% 
+ filter_all(any_vars(. > 5)) 
+```
+
+```{r}
+# Now using if_any/if_all, selection helper and a predicate to do the same
+iris_tbl %>% 
+  select(-Species) %>% 
+  filter(if_any(everything(), ~ .x > 5)) # OR \(x) x > 5
+
+```
+
+```{r}
+# We don't have to drop the Species column with select; do it in the if_any
+iris_tbl %>% filter(if_any(-Species, ~ .x > 5)) 
+```
+
+```{r}
+# Old way
+iris_tbl %>% 
+ filter_at(c("Petal.Length", "Sepal.Length"),
+ any_vars(. > 0)) 
+```
+
+```{r}
+# New way
+iris_tbl %>% filter(if_any(contains("Length"), \(x) x > 0)) # OR ~ .x > 0
+```
+
+The old way to selectively filter columns was with `filter_if()`:
+
+```{r}
+# The old way with filter_if (rows where all numeric columns have value < 5)
+iris_tbl %>% filter_if(is.numeric, all_vars(. < 5))
+```
+
+Now this can be done by using `if_all`/`if_any` and the select helper `where` that
+uses a predicate to select columns.
+
+```{r}
+# Using `if_all` with `where`
+iris_tbl %>% filter(if_all(where(is.numeric), ~ .x < 5))
+```
+
+You can use functions or lambda expressions as the predicate.
+Consider a case where we have numbers with missing data in a table. If we want to 
+filter the rows where all values are greater than three.
+
+```{r}
+# Data
+df <- 
+   tribble(
+     ~A, ~B, ~C,
+     1, 2, 3,
+     4, 5, NA,
+     11, 12, 13,
+     22, 22, 1
+   )
+df
+```
+
+```{r}
+# Keep rows where all values are greater than 3
+df %>% filter(if_all(everything(), ~ .x > 3))
+```
+
+It removes the first two and the last row because they all contain values smaller or 
+equal to three. It also deletes the third row because NA is not considered greater than 
+three. We can restrict the tests to the columns that do not contain missing values:
+
+```{r}
+# Filter based only on columns with no NA's
+
+# create predicate
+none_missing <- as_mapper(~ !(any(is.na(.x))))
+
+df %>% filter(if_all(where(none_missing),  ~ .x > 3))
+```
+See the selection for columns below for the filter above
+```{r}
+df %>% select(where(~ !(any(is.na(.x))))) # OR \(x) !(any(is.na(x)))
+```
+
+This removes column C from the tests. It means that we also keep the last row even 
+though C has a value smaller than three.
+
+If you want to keep the two middle rows but not the first or last, you can write a more 
+complex predicate and use filter_all().
+
+```{r}
+# Old way with filter_all
+df %>% filter_all(all_vars(is.na(.) | . > 3))
+```
+
+```{r}
+# New way
+na_or_bigger_than_3 <- as_mapper(~ is.na(.x) | .x > 3) # named function just for fun
+
+df %>% filter(if_all(everything(), na_or_bigger_than_3))
+```
+
+### Sorting
+
+If you want to sort rows by values in selected columns, the function you want is called 
+arrange(). You can sort by one or more columns:
+
+```{r}
+# Sort ascending by one column
+iris_tbl %>% arrange(Petal.Length)
+```
+
+```{r}
+# Ascending two columns
+iris_tbl %>% arrange(Sepal.Length, Petal.Length)
+```
+
+```{r}
+# Descending sort
+iris_tbl %>% arrange(desc(Petal.Length))
+```
+
+```{r}
+# Sort by two columns: First ascending, second descending
+iris_tbl %>% arrange(Sepal.Length, desc(Petal.Length))
+```
+
+### Modifying Data Frames
+
+The `mutate()` function lets us add columns to a data frame based on expressions that 
+can involve any of the existing columns. Consider a table of widths and heights.
+
+```{r}
+# Data
+df <- tribble(
+ ~height, ~width,
+ 10, 12,
+ 42, 24,
+ 14, 12
+)
+
+df
+```
+
+We can add an area column using `mutate()` and an expression
+```{r}
+# Add column
+df %>% mutate(area = height * width)
+```
+You can use the newly defined column already in the same call to `mutate`
+
+```{r}
+# Reuse new column in the same mutate
+cm_per_inch <- 2.54 
+
+df %>% 
+  mutate(
+    height_cm = cm_per_inch * height,
+    width_cm = cm_per_inch * width,
+    area_cm = height_cm * width_cm # Use new columns
+  )
+```
+
+```{r}
+# You can't use variables that are yet to be defined
+df %>% 
+  mutate(
+    area_cm = height_cm * width_cm, # Error!
+    height_cm = cm_per_inch * height,
+    width_cm = cm_per_inch * width,
+  )
+```
+
+If you do not give the new variable a name, that is, you call `mutate()` with named 
+parameters, then the expression will become the variable name:
+
+```{r}
+df %>% mutate(cm_per_inch * height)
+```
+You can use `transmute` to mutate one variable to another. All unselected variables will be dropped.
+This is superseded by mutate(.keep = "none")
+```{r}
+# Transmute a variable, drop all others
+df %>% transmute(height_in = height * cm_per_inch)
+```
+```{r}
+# Using mutate
+df %>% mutate(height_in = height * cm_per_inch, .keep = "none")
+```
+As with filtering, the expressions you use when mutating a data frame must be vector 
+expressions. Consider this example:
+
+```{r}
+df <- tibble(
+ x = rnorm(3, mean = 12, sd = 5),
+)
+
+df
+```
+```{r}
+# This fails because the function is not vectorised
+df %>% mutate(~ if (.x < 0) -.x else .x)
+```
+
+```{r}
+# Using the vectorized ifelse works
+df %>% mutate(ifelse(x < 0, -x, x))
+```
+
+```{r}
+# As does the function abs()
+df %>% mutate(abs(x))
+```
+Or you can use the `Vectorize()` function to make a vector expression out of a 
+function that does not handle vectors.
+
+```{r}
+# Vectorize function
+my_abs <- Vectorize(\(x) if (x < 0) -x else x)
+df %>% mutate(my_abs(x))
+```
+
+If you need to map the input to several different output values, you can nest 
+`ifelse()` expressions arbitrarily deep, but it gets difficult to read. A function that 
+alleviates this problem substantially is `case_when()`. You can give it a sequence of 
+predicates with matching expressions, and it will return the expression for the first 
+matching predicate. You can use `case_match` as a general vectorized `switch`.
+
+```{r}
+(df <- tibble(x = rnorm(100)))
+```
+
+```{r}
+# case_when
+df %>%
+  mutate(
+    x_category = case_when(
+      x - mean(x) < -2 * sd(x) ~ "small",
+      x - mean(x) > 2 * sd(x) ~ "large", 
+      .default = "medium", 
+    )
+  ) 
+```
+
+```{r}
+# Some data
+animals <- tribble(
+  ~Species, ~Class,
+  "Horse", "mammal",
+  "Jay", "bird",
+  "Shark", "fish"
+)
+animals
+```
+
+```{r}
+# case_match
+animals %>%
+  mutate(
+    legs = case_match(
+      Species,
+      "Horse" ~ 4,
+      "Jay" ~ 2,
+      "Shark" ~ 0
+    )
+  )
+```
+
+### Grouping and Summarizing
+
+In many analyses, we need summary statistics of our data. If you can map one or more of 
+your columns into a single summary, you can use the summarise() function.
+
+```{r}
+# Data
+(df <- tibble(x = rnorm(100), y = rnorm(100)))
+```
+
+```{r}
+df %>% 
+  summarise(mean_x = mean(x), mean_y = mean(y))
+```
+
+If you split your data into different classes and want to work on the data per group, 
+you can use the function group_by().
+
+```{r}
+# Function to classify
+classify <- function(x) {
+  case_when(
+    x - mean(x) < -2 * sd(x) ~ "small",
+    x - mean(x) > 2 * sd(x) ~ "large",
+    .default = "medium"
+  )
+}
+```
+
+```{r}
+df %>% 
+  mutate(x_category = classify(x))
+```
+
+```{r}
+df %>% 
+  mutate(x_category = classify(x)) %>% 
+  group_by(x_category) 
+```
+
+The result is a data frame that, when we print it, doesn’t look different from before we 
+grouped the data. In the header, however, you will notice the line: Groups: x_category[3]
+
+```{r}
+# Group and summarise
+df %>% 
+  mutate(x_category = classify(x)) %>% 
+  group_by(x_category) %>% 
+  summarise(mean_x = mean(x), no_x = n())
+```
+When you group your data and then summarize, you get a per-group summary 
+statistics. Here, we calculate the mean and the number of observations in each category 
+(the function n() gives you the number of observations).
+
+```{r}
+# Get grouped variables
+df %>% 
+  mutate(x_category = classify(x)) %>% 
+  group_by(x_category) %>% 
+  group_vars()
+```
+
+You can group by more than one variable
+```{r}
+df <- tibble(x = rnorm(100), y = rnorm(100)) %>% 
+  mutate(
+ x_category = classify(x),
+ y_category = classify(y)
+ )
+
+df
+```
+
+```{r}
+df %>% 
+  group_by(x_category, y_category) %>% 
+  group_vars()
+```
+
+```{r}
+df %>% 
+  group_by(x_category, y_category) %>% 
+  summarise(mean_x = mean(x), mean_y = mean(y))
+```
+The notice you get that the output has “grouped output by ‘x_category’” means just 
+that: the table we get out from the call to summarise() is still grouped by x_category, as 
+you can also see in the printed output of the result (in the Groups: x_category [3] line 
+in the header).
+
+When you group by multiple variables, it works in effect as if you add groups one 
+by one, and you can also do this via multiple calls to group_by(). There, however, you 
+need the argument .add = TRUE to add a group rather than replacing one, which is what 
+group_by() will do without this argument.
+
+```{r}
+# Grouping at the same time
+df %>% 
+  group_by(x_category, y_category) %>% 
+  group_vars()
+```
+
+```{r}
+# Adding grouping vars in steps
+df %>% 
+  group_by(x_category) %>% 
+  group_by(y_category, .add = TRUE) %>% 
+  group_vars()
+```
+
+```{r}
+# Replacing one grouping with another
+df %>% 
+  group_by(x_category) %>% 
+  group_by(y_category) %>% 
+  group_vars()
+```
+
+When you summarize, you remove the last grouping you created—the summary only 
+has one row per value in that group anyway, so it isn’t useful any longer—but the other 
+groups remain. This was the default behavior in early versions of dplyr, and still is, but 
+is a common source of errors. Some data scientists expect this behavior, others expect 
+that all groups are removed, and if your expectations are not met, there is a good chance 
+that the following analysis will be wrong; if you think you are working on the data as a 
+whole, but all operations are grouped by one or more variables, you are unlikely to get 
+the results that you want.
+
+Because of this, summarise() now takes the argument .groups where you can 
+specify the behavior you want. It is not yet required, since that would break backward 
+compatibility to a lot of code, but you get the message about using it that we saw a little 
+while up.
+
+```{r}
+# Default is to drop the last grouping
+df %>% 
+  group_by(x_category, y_category) %>% 
+  summarise(mean_x = mean(x), mean_y = mean(y)) %>% 
+  group_vars()
+```
+
+```{r}
+# Drop last grouping var explicitly
+df %>% 
+  group_by(x_category, y_category) %>% 
+  summarise(mean_x = mean(x), mean_y = mean(y), .groups = "drop_last") %>% 
+  group_vars()
+```
+
+```{r}
+# Drop all groupings
+df %>% 
+  group_by(x_category, y_category) %>% 
+  summarise(mean_x = mean(x), mean_y = mean(y), .groups = "drop") %>% 
+  group_vars()
+```
+
+```{r}
+# Keep all groupings
+df %>% 
+  group_by(x_category, y_category) %>% 
+  summarise(mean_x = mean(x), mean_y = mean(y), .groups = "keep") %>% 
+  group_vars()
+```
+
+If you have grouped your data, or you get grouped data from one summary as before, 
+you can remove the groups again using ungroup(). Once you have done this, you can 
+compute global summaries again.
+
+```{r}
+# Remove grouping with ungroup
+df %>% 
+  group_by(x_category, y_category) %>% 
+  ungroup() %>% 
+  group_vars()
+```
+
+With dplyr v.1.0.0 you can also do transient grouping using the `.by` argument. Notice the lack
+of grouping vars after the computation.
+```{r}
+# Keep all groups
+df %>% summarise(mean_x = mean(x), mean_y = mean(y), .by = c(x_category, y_category)) 
+```
+This is the same as:
+
+```{r}
+# Remove grouping with ungroup
+df %>% 
+  group_by(x_category, y_category) %>% 
+  summarise(mean_x = mean(x), mean_y = mean(y), .groups = "drop") # or using ungroup()
+```
+
+Grouping is not only useful when collecting summaries of your data. You can also 
+add columns to your data frame based on per-group computations using mutate():
+
+```{r}
+# Add new columns based on groups
+df %>% 
+  group_by(x_category) %>% 
+  mutate(mean_x = mean(x), mean_y = mean(y)) %>% 
+  ungroup() # Notice the use of ungroup here
+```
+
+```{r}
+# using the new transient grouping style with `.by`
+df %>% mutate(mean_x = mean(x), mean_y = mean(y), .by = x_category) 
+```
+
+A mutate() without a group_by() will give you summaries for the entire data.
+
+```{r}
+# New values use all data here
+df %>% mutate(mean_x = mean(x), mean_y = mean(y))
+```
+
+```{r}
+# Only one combo of unique values
+df %>% 
+  mutate(mean_x = mean(x), mean_y = mean(y)) %>% 
+  distinct(mean_x, mean_y)
+```
+
+Here, we only have one row of values, and this is because we have computed the mean values for the entire data set and not for different groupings of the data.
+
+In contrast, if you group before adding variables to the data, then the summaries are 
+per group.
+
+```{r}
+# Group specific summaries
+df %>% 
+  group_by(x_category) %>% 
+  summarise(mean_x = mean(x))
+```
+You can combine data-wide summaries with grouped summaries if you calculate the 
+global summaries before you group.
+
+```{r}
+df %>% 
+  mutate(mean_y = mean(y)) %>% # Global mutate
+  group_by(x_category) %>% 
+  mutate(mean_x = mean(x)) %>%  # Group specific mutate
+  distinct(mean_x, mean_y)
+
+```
+```{r}
+# Using the new .by grouping
+df %>% 
+  mutate(mean_y = mean(y)) %>% # Global mutate
+  mutate(mean_x = mean(x), .by = x_category) %>% # Group specific mutate
+  distinct(x_category, mean_x, mean_y) 
+```
+Notice that the mean_y values are the same in the output rows; this is because we 
+have computed the mean globally and not for each group.
+
+If you need to compute summaries with different groups, for example, the mean 
+of x for each x_category as well as the mean of y for each y_category, then you can 
+call group_by(x_category) for summarizing x, followed by group_by(y_category) for 
+changing the grouping so you can summarize y.
+
+```{r}
+# Old way is quite verbose
+df %>% 
+  group_by(x_category) %>% 
+  mutate(mean_x = mean(x)) %>% 
+  group_by(y_category) %>% 
+  mutate(mean_y = mean(y)) %>% 
+  ungroup() %>% 
+  distinct(x_category, y_category, mean_x, mean_y)
+```
+
+
+```{r}
+# Using .by grouping is sleeker
+df %>% 
+  mutate(mean_x = mean(x), .by = x_category) %>% 
+  mutate(mean_y = mean(y), .by = y_category) %>% 
+  distinct(x_category, y_category, mean_x, mean_y)
+```
+
+### Joining Tables
+
+It is not uncommon to have your data in more than one table. This could be because the 
+tables are created from different calculations, for example, different kinds of summaries, 
+or it can be because you got the data from different files.
+If you merely need to combine tables by row or column, then you can use the bind_
+rows() and bind_columns() functions which do precisely what you would expect.
+
+```{r}
+# Create data
+df1 <- tibble(
+ A = paste0("a", 1:2),
+ B = paste0("b", 1:2)
+)
+
+df2 <- tibble(
+ A = paste0("a", 3:4),
+ B = paste0("b", 3:4)
+)
+
+df3 <- tibble(
+ C = paste0("c", 1:2),
+ D = paste0("d", 1:2)
+)
+```
+
+```{r}
+df1
+```
+
+```{r}
+df2
+```
+
+```{r}
+df3
+```
+
+```{r}
+# Bind by rows (requires identically named columns)
+bind_rows(df1, df2, .id = "origin_df") # The .id arg can be used to identify the original df
+```
+
+```{r}
+# Bind by columns (requires identical numbers of rows)
+bind_cols(df1, df3)
+```
+
+If you have tables that represent different relations between variables — the 
+underlying principle of relational databases aimed at avoiding duplicated data — then 
+you can combine them using join functions.
+
+```{r}
+# Grades data
+grades_maths <- tribble(
+ ~name, ~grade,
+ "Marko Polo", "D",
+ "Isaac Newton", "A+",
+ "Charles Darwin", "B"
+)
+grades_biology <- tribble(
+ ~name, ~grade,
+ "Marko Polo", "F",
+ "Isaac Newton", "D",
+ "Charles Darwin", "A+"
+)
+```
+
+```{r}
+grades_maths
+```
+
+```{r}
+grades_biology
+```
+
+```{r}
+# Inner join
+inner_join(grades_maths, grades_biology, by = "name")
+```
+
+```{r}
+# Fix colnames with suffix
+inner_join(grades_maths, grades_biology, by = "name", suffix = c(".maths", ".biology"))
+```
+
+This tells inner_join() that you want to combine all rows in the first table with all 
+rows in the second, where the two rows have the same name. You can use more than one 
+key in a join if you give by a vector of variable names.
+
+Earlier, each name appears once per table. If a key appears more than once, then the 
+result of an inner join will have a list with all combinations of rows sharing a name.
+
+```{r}
+grades_maths2 <- tribble(
+ ~name, ~grade,
+ "Marko Polo", "D",
+ "Isaac Newton", "A+", # so good at physics
+ "Isaac Newton", "A+", # that he got an A+ twice
+ "Charles Darwin", "B"
+)
+grades_biology2 <- tribble(
+ ~name, ~grade,
+ "Marko Polo", "F",
+ "Isaac Newton", "D",
+ "Charles Darwin", "A+", # so good at biology that we
+ "Charles Darwin", "A+" # listed him twice
+)
+```
+
+```{r}
+grades_maths2
+```
+
+```{r}
+grades_biology2
+```
+
+```{r}
+# By name
+inner_join(grades_maths2, grades_biology2, by = "name", suffix = c(".maths", ".biology"))
+```
+```{r}
+# By grade
+inner_join(grades_maths2, grades_biology2, by = "grade", suffix = c(".maths", ".biology")) 
+```
+
+In the last join, you see that you can get the same line multiple times from an inner 
+join. Combine the join with distinct() if you want to avoid this.
+
+```{r}
+# Drop duplicate rows
+inner_join(
+  grades_maths2, grades_biology2, 
+  by = "grade", 
+  suffix = c(".maths", ".biology")
+) %>%
+  distinct()
+```
+
+Students might take different classes, and you have several choices on how to 
+combine tables with different keys.
+
+An inner_join() will only give you the rows where a key is in both tables.
+
+```{r}
+# More grades
+grades_geography <- tribble(
+ ~name, ~grade,
+ "Marko Polo", "A",
+ "Charles Darwin", "A",
+ "Immanuel Kant", "A+"
+)
+grades_physics <- tribble(
+ ~name, ~grade,
+ "Isaac Newton", "A+",
+ "Albert Einstein", "A+",
+ "Charles Darwin", "C"
+)
+```
+
+```{r}
+grades_geography
+```
+```{r}
+grades_physics
+```
+
+```{r}
+# Inner join keeps only the rows where key column values are in both tables
+inner_join(
+ grades_geography, grades_physics,
+ by = "name", 
+ suffix = c(".geography", ".physics")
+)
+```
+
+The full_join() function, in contrast, gives you a table containing all keys. If a key 
+is only found in one of the tables, the variables from the other table will be set to NA.
+
+```{r}
+full_join(
+ grades_geography, grades_physics,
+ by = "name", 
+ suffix = c(".geography", ".physics")
+)
+```
+
+If you want all keys from the left or right table (but not both left and right)—
+potentially with NA if the other table does not have the key—then you need left_join()
+or right_join().
+
+```{r}
+left_join(
+  grades_geography, grades_physics,
+  by = "name",
+  suffix = c(".geography", ".physics")
+)
+```
+
+```{r}
+right_join(
+ grades_maths, grades_physics,
+ by = "name", 
+ suffix = c(".maths", ".physics")
+)
+```
+
+A semi_join() will give you all the rows in the first table that contains a key in the 
+second table.
+
+```{r}
+semi_join(
+ grades_maths2, grades_biology2,
+ by = "name"
+)
+```
+
+You can still get multiple identical rows from a semi_join(). If the first table has 
+duplicated rows, you will get the same duplication of the rows. If you do not want that, 
+you can combine the join with distinct().
+
+```{r}
+semi_join(
+  grades_maths2, grades_biology2,
+  by = "name"
+) %>% 
+  distinct()
+```
+
+An anti_join() gives you all the rows in the first table where the key or keys are not 
+found in the second table. Think of it as the complement of semi_join().
+
+```{r}
+anti_join(
+  grades_maths2, grades_physics,
+  by = "name"
+)
+```
+
+The join functions only take two tables as input so you might wonder how you can 
+combine multiple tables. One solution is to use purrr’s reduce() function:
+
+```{r}
+# Join several tables in one fell swoop!
+list(
+ grades_maths, 
+ grades_biology,
+ grades_geography, 
+ grades_physics
+) %>%
+  reduce(~ full_join(.x, .y, by = "name")) %>% 
+  rename_with(~ c("name", "maths", "biology", "geography", "physics"))
+```
+
+### Income in Fictional Countries
+
+Recall the income data 
+```{r}
+(mean_income <- tribble(
+ ~country, ~`2002`, ~`2003`, ~`2004`, ~`2005`,
+ "Numenor", 123456, 132654, NA, 324156,
+ "Westeros", 314256, NA, NA, 465321,
+ "Narnia", 432156, NA, NA, NA,
+ "Gondor", 531426, 321465, 235461, 463521,
+ "Laputa", 14235, 34125, 45123, 51234,
+))
+```
+
+If we want to replace `NA` with the mean income for a country in rows with missing data, 
+we now have the tools.
+
+```{r}
+# First pivot longer
+mean_income %>% pivot_longer(-country, names_to = "year", values_to = "mean_income")
+```
+
+```{r}
+# Calculate values for mean per country
+mean_income %>% 
+  pivot_longer(-country, names_to = "year", values_to = "mean_income") %>% 
+  group_by(country) %>%
+  mutate(
+    mean_per_country = mean(mean_income, na.rm = TRUE)
+   )
+```
+
+```{r}
+# Replace missing values in mean_income with mean of country
+mean_income %>% 
+  pivot_longer(-country, names_to = "year", values_to = "mean_income") %>% 
+  group_by(country) %>%
+  mutate(
+    mean_per_country = mean(mean_income, na.rm = TRUE),
+    mean_income = ifelse(is.na(mean_income), mean_per_country, mean_income)
+  )
+```
+
+```{r}
+# Finally pivot wider for the final result
+mean_income %>% 
+  pivot_longer(-country, names_to = "year", values_to = "mean_income") %>% 
+  group_by(country) %>%
+  mutate(
+    mean_per_country = mean(mean_income, na.rm = TRUE),
+    mean_income = ifelse(is.na(mean_income), mean_per_country, mean_income)
+  ) %>% 
+  pivot_wider( names_from = "year", values_from = "mean_income")
+```
+
+```{r}
+# Using rowwise operations!
+mean_income %>% 
+  rowwise() %>% # Go to rowwise mode!
+  mutate(country_mean = mean(c_across(is.numeric), na.rm = TRUE)) %>% 
+  pivot_longer(-starts_with("c"), names_to = "year", values_to = "income") %>% 
+  mutate(income = if_else(is.na(income), country_mean, income)) %>% 
+  pivot_wider(names_from = year, values_from = income)
+```
+
+
+
+
+

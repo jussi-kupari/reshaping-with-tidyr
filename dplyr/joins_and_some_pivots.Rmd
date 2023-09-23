@@ -1,0 +1,227 @@
+---
+title: "Joins"
+output: html_notebook
+---
+
+```{r}
+# Load tidyverse
+suppressPackageStartupMessages(
+  library(tidyverse)
+)
+```
+
+### Matching subjects in two tibbles
+
+```{r}
+judgments <- read_tsv("data/judgments.tsv", show_col_types = FALSE)
+head(judgments)
+```
+
+
+
+```{r}
+# Additional data for some participants for coffee consumption
+(coffee_drinkers <-
+  tribble(
+    ~student, ~coffee_shots,
+    21,       1,
+    23,       4,
+    28,       2
+  ))
+```
+
+```{r}
+# Smaller sample set. This is made up data for demonstration purposes only.
+(subject_mood <-
+  judgments %>% 
+  select(subject, condition, gender, starts_with("mood")) %>% 
+  distinct())
+  
+```
+
+#### Combining the two tables
+
+```{r}
+# Error! No common key.
+inner_join(coffee_drinkers, subject_mood)
+```
+
+```{r}
+# Provide the corresponding columns names.
+inner_join(subject_mood, coffee_drinkers, by = join_by(subject == student))
+```
+
+Creating new tables through joins
+
+    Key operations in data processing
+
+    Role of observations as row changes
+
+    inner_join() is the most strict join operations
+
+    merge is a similar operation in base R
+
+
+```{r}
+# full_join example
+subject_mood %>% 
+  full_join(coffee_drinkers, by = join_by(subject == student))
+```
+
+Two tables - same column names
+
+What if we have gender in both tables?
+
+```{r}
+# Add gender to coffee drinkers
+(coffee_drinkers <- 
+   mutate(coffee_drinkers, gender = c("female", "female", "male")))
+```
+Mutating joins distinct the same column names by adding suffixes - .x and .y.
+
+```{r}
+left_join(subject_mood,
+          coffee_drinkers,
+          by = join_by(subject == student)) %>% 
+  arrange(gender.y)
+```
+
+Join by one column
+
+```{r}
+# Add suffixes
+left_join(subject_mood,
+          coffee_drinkers,
+          by = join_by(subject == student), 
+          suffix = c( "_mood", "_coffee")) %>% 
+  arrange(gender_coffee)
+```
+
+Join by two columns
+```{r}
+# Now we get just one column for gender
+left_join(subject_mood,
+          coffee_drinkers,
+          by = join_by(subject == student, gender)) %>% 
+  arrange(coffee_shots)
+```
+
+Filtering joins -
+
+    Only the existence of a match is important; it doesn’t matter which observation is matched. This means that filtering joins never duplicate rows like mutating joins do
+
+semi_join()
+
+Filter matches in x, no duplicates.
+
+anti_join()
+
+Extract what does not match.
+
+
+semi_join() does not alter original
+```{r}
+(tx <- tribble(~key, ~x,
+              1, "x1", 
+              2, "x2", 
+              3, "x3", 
+              4, "x4"))
+```
+
+```{r}
+(ty <- tribble(~key, ~y,
+              1, "y1",
+              2, "y2",
+              2, "y3",
+              3, "y4"))
+```
+
+```{r}
+# Filtering with semi_join
+semi_join(tx, ty, by = join_by(key))
+```
+```{r}
+# Mutating with inner_join
+inner_join(tx, ty, by = join_by(key))
+```
+
+Converting into long or wide formats - pivot functions
+
+```{r}
+(variants_wide <- 
+  tribble(
+    ~sample_id, ~`3`, ~`5`, ~`8`,
+    "L1002",    "A",  "C",  NA,
+    "L1034",    "A",  NA,   "T",
+    "L1234",    NA,   "C",  "T"
+  ))
+```
+
+```{r}
+variants_wide %>% 
+  pivot_longer(-sample_id, names_to = "pos", values_to = "variant")
+```
+
+Values across dilemmas
+
+```{r}
+# Select, pivot wider and count
+  judgments %>% 
+  select(subject, condition, age, starts_with("moral_dilemma")) %>% 
+  pivot_longer(
+    contains("dilemma"),
+    names_prefix = "moral_dilemma_",   
+    # names_pattern = "moral_dilemma_(.*)", # This is an alternative using regex
+    names_to = "dilemma",
+    values_to = "dilemma_val") %>% 
+  count(condition, dilemma_val) 
+```
+
+```{r}
+# Pivot wider
+(judgments_condition_stats <-
+  judgments %>% 
+  select(subject, condition, age, starts_with("moral_dilemma")) %>% 
+  pivot_longer(
+    contains("dilemma"),
+    names_prefix = "moral_dilemma_",   
+    names_to = "dilemma",
+    values_to = "dilemma_val") %>%
+  count(condition, dilemma_val) %>% 
+  # names_prefix is useful if names_from is a numeric vector 
+  pivot_wider(names_from = dilemma_val, values_from = n, names_prefix = "score"))
+```
+
+Removing the data frame context through pull()
+
+```{r}
+# Extract one column from a df or tibble as a vector (useful in pipelines)
+pull(judgments, age)[1:10]
+```
+
+```{r}
+# Extract same vector along with a chosen name column
+pull(judgments, age, name = gender)[1:10]
+```
+
+Calculate differences between subjects
+
+```{r}
+judgments %>% 
+  select(subject, mood_pre) %>%  
+  arrange(subject) %>%  
+  mutate(prev_mood_pre = lag(mood_pre),
+         mood_diff = mood_pre - lag(mood_pre)) 
+```
+
+
+```{r}
+(input <- 
+  tribble(
+    ~sampleid, ~var1, ~var2, ~var3,
+    "S1", 	"A3T", 	"T5G", 	"T6G",
+    "S2", 	"A3G", 	"T5G", 	NA,
+    "S3", 	"A3T", 	"T6C", 	"G10C",
+    "S4", 	"A3T", 	"T6C", 	"G10C"
+  ))
+```

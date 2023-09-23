@@ -1,0 +1,624 @@
+---
+title: "R4DS-Quickref: Ch9 -- Working with Strings: stringr"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+### Counting String Patterns
+
+The str_count() function counts how many tokens a string contain, where tokens, for 
+example, can be characters or words. By default, str_count() will count the number of 
+characters in a string.
+
+```{r}
+# Strings
+(strings <- c(
+ "Give me an ice cream",
+ "Get yourself an ice cream",
+ "We are all out of ice creams",
+ "I scream, you scream, everybody loves ice cream.",
+ "one ice cream,
+ two ice creams,
+ three ice creams",
+ "I want an ice cream. Do you want an ice cream?"
+))
+```
+
+```{r}
+# Count individual strings (by default the count of all characters in the string)
+str_count(strings)
+```
+
+```{r}
+# So 'str_length' gives the same result here
+str_length(strings)
+```
+
+```{r}
+# But 'length' does not, of course
+length(strings)
+```
+
+You can be explicit in specifying that str_count() should count characters by giving 
+it a boundary() option. This determines the boundary between tokens (characters, 
+words, lines, etc.), that is, the units to count.
+
+```{r}
+# Count strings, by character
+str_count(strings, boundary("character"))
+```
+
+```{r}
+# by words per string
+str_count(strings, boundary("word"))
+```
+
+```{r}
+# by sentences per line
+str_count(strings, boundary("sentence"))
+```
+
+```{r}
+# by number of lines
+str_count(strings, boundary("line_break"))
+```
+
+
+```{r}
+# Count substrings
+str_count(strings, "ice cream")
+```
+
+```{r}
+# Here you get 'scream' as well
+str_count(strings, "cream")
+```
+
+The pattern you ask str_count() to count is not just a string. It is a regular 
+expression. Some characters take on special meaning in regular expressions.For 
+example, a dot represents any single character, not a full stop.
+
+```{r}
+# Count the number of any characters per line
+str_count(strings, ".")
+```
+
+```{r}
+# Count the literal string
+str_count(strings, fixed("."))
+```
+
+```{r}
+# Previous can be also done like so
+str_count(strings, "\\.")
+```
+
+Since the pattern is a regular expression, we can use it to count punctuation 
+characters:
+
+```{r}
+# Count punctuation characters
+str_count(strings, "[[:punct:]]")
+```
+
+or the number of times ice cream(s) is at the end of the string:
+```{r}
+# The s? means zero or one s, and the $ means the end of the string.
+str_count(strings, "ice creams?$")
+```
+
+Or rather, at the end of the string except that it might be followed by a 
+punctuation mark.
+
+```{r}
+str_count(strings, "ice creams?[[:punct:]]?$")
+```
+
+### Splitting Strings
+
+Sometimes, you want to split a string based on some separator—not unlike how we 
+split on commas in comma-separated value files. The stringr function for this is str_
+split()
+
+```{r}
+# New strings
+(strings <- c(
+ "one",
+ "two",
+ "one two",
+ "one two",
+ "one. two."
+))
+```
+
+```{r}
+# Split on space
+# Note that this works even when there are more than one space
+str_split(strings, " ")
+```
+
+You can use the boundary() function for splitting as well. For example, you can split 
+a string into its words using boundary("word"):
+
+```{r}
+# We also get rid of the full stops in the last string.
+str_split(strings, boundary("word"))
+```
+
+### Capitalizing Strings
+
+You can use the str_to_lower() and friends to transform a string into different case.
+
+```{r}
+(macdonald <- "Old MACDONALD had a farm.")
+```
+
+```{r}
+str_to_lower(macdonald)
+str_to_upper(macdonald)
+str_to_title(macdonald)
+str_to_sentence(macdonald)
+```
+
+### Wrapping, Padding, and Trimming
+
+If you want to wrap strings, that is, add newlines, so they fit into a certain width, you can 
+use str_wrap().
+
+```{r}
+# New strings again
+(strings <- c(
+ "Give me an ice cream",
+ "Get yourself an ice cream",
+ "We are all out of ice creams",
+ "I scream, you scream, everybody loves ice cream.",
+ "one ice cream,
+ two ice creams,
+ three ice creams",
+ "I want an ice cream. Do you want an ice cream?"))
+```
+
+```{r}
+str_wrap(strings)
+```
+
+```{r}
+# The default width is 80 characters, but you can change that using the width argument.
+str_wrap(strings, width = 10) 
+```
+
+```{r}
+# You can indent the first line in the strings while wrapping them using the indent argument.
+str_wrap(strings, width = 10, indent = 2)
+```
+
+If you want your string to be left, right, or center justified, you can use str_pad().
+The default is right-justifying strings.
+
+```{r}
+# Default is right-justify
+str_pad(strings, width = 50)
+```
+
+```{r}
+# Right-justify actually uses left-padding
+str_pad(strings, width = 50, side = "left")
+```
+
+```{r}
+# If you want to left-justify instead, you can pass "right" to the side argument.
+str_pad(strings, width = 50, side = "right")
+```
+
+You need to use "right" to left-justify because the side argument determines which 
+side to pad, and for left-justified text, the padding is on the right.
+If you want to center your text, you should use "both"; you are padding both on the 
+left and on the right.
+
+```{r}
+# Center text
+str_pad(strings, side = "both", width = 50)
+```
+
+In these padding examples, we do not keep the lengths of the strings below the 
+padding width. If a string is longer than the padding width, it is unchanged. You can 
+use the str_trunc() function to cut the width down to a certain value. For example, we 
+could truncate all the strings to width 25 before we pad them:
+
+```{r}
+strings %>% 
+  str_trunc(25) %>% 
+  str_pad(width = 25, side = "left")
+```
+
+The str_trim() function removes whitespace to the left and right of a string:
+
+```{r}
+# Cokes
+(cokes <- c(
+  " one small coke",
+  "two large cokes ",
+  " three medium cokes "
+))
+```
+
+```{r}
+# Whitespace inside the string is preserved.
+str_trim(cokes, side = "both")
+```
+
+For example, if we have two  spaces between two words, 
+as follows, str_trim() leaves them alone:
+
+```{r}
+(cokes <- c(
+  " one small coke",
+  "  two   large cokes ",
+  " three medium cokes   "
+))
+```
+
+```{r}
+str_trim(cokes, side = "both")
+```
+
+If we want the two spaces to be shortened into a single space, we can use str_
+squish() instead.
+
+```{r}
+# This also trims the spaces at the ends
+str_squish(cokes)
+```
+
+### Detecting Substrings
+
+To check if a substring is found in another string, you can use str_detect().
+
+```{r}
+str_detect(strings, "me")
+str_detect(strings, "I")
+str_detect(strings, "cream")
+```
+
+```{r}
+# You can do an inverse search using 'negate = TRUE'
+str_detect(strings, "I")
+str_detect(strings, "I", negate = TRUE)
+```
+
+The pattern is a regular expression, so to test for ice cream followed by a full stop, you 
+cannot search for “ice cream.”
+
+```{r}
+# You can use 'fixed' or escaping to get the correct result
+str_detect(strings, "ice cream.")
+str_detect(strings, fixed("ice cream."))
+str_detect(strings, "ice cream\\.")
+```
+
+Two special case functions test for a string at the start or end of a string:
+
+```{r}
+str_starts(strings, "I")
+str_ends(strings , "\\.") # escaping to search literal dot
+```
+
+If you want to know where a substring is found, you can use str_locate(). It will 
+give you the start and end index where it found a match.
+
+```{r}
+# Here, you get a start and end index for the first occurrence of each string 
+str_locate(strings, "ice cream")
+```
+
+The function str_locate_all() gives you all occurrences.
+```{r}
+str_locate_all(strings, "ice cream")
+```
+
+If you want the start and end points of the strings between the occurrences, you can 
+use invert_match().
+
+```{r}
+# Using map to get the inverted matches for all
+all_matches <- str_locate_all(strings, "ice cream")  
+map(all_matches, invert_match)
+```
+
+### Extracting Substrings
+
+To extract a substring matching a pattern, you can use str_extract(). It gives you the 
+first substring that matches a regular expression.
+
+```{r}
+# Match the first "scream" or "ice cream" and 0 or more word characters
+str_extract(strings, "(s|ice )cream\\w*")
+```
+
+```{r}
+# Get all matches
+str_extract_all(strings, "(s|ice )cream\\w*")
+```
+
+### Transforming Strings
+
+We can replace a substring that matches a pattern with some other string.
+
+```{r}
+(lego_str <- str_replace(strings, "ice creams?", "LEGO"))
+```
+
+```{r}
+lego_str %>% str_replace("an LEGO", "a LEGO")
+```
+
+These two replacement operators can be written as a pipeline to make the code more
+```{r}
+strings %>% 
+  str_replace("ice creams?", "LEGO") %>% 
+  str_replace("an LEGO", "a LEGO")
+```
+
+```{r}
+# To replace all occurrences, you need str_replace_all().
+strings %>% 
+  str_replace_all("ice creams?", "LEGO") %>% 
+  str_replace_all("an LEGO", "a LEGO")
+```
+
+You can refer back to matching groups in the replacement string, something you will 
+be familiar with for regular expressions.
+
+```{r}
+(us_dates <- c(
+ valentines = "2/14",
+ my_birthday = "2/15",
+ # no one knows but let's just go with this
+ jesus_birthday = "12/24"
+))
+```
+
+```{r}
+# US date format to a more sane format
+# Capture groups the reorder them (first = \\1, second = \\2)
+str_replace(us_dates, "(.*)/(.*)", "\\2/\\1")
+```
+
+The str_dup() function duplicates a string, that is, it repeats a string multiple times.
+
+```{r}
+# Here, we used str_c() to concatenate strings. This is a stringr version of paste.
+str_c("NA", str_dup("-NA", times = 7), " BATMAN!")
+```
+
+A more direct way to extract and modify a substring is using str_sub(). It lets 
+you extract a substring specified by a start and an end index, and if you assign to it, 
+you replace the substring. The str_sub() function is less powerful than the other 
+functions as it doesn’t work on regular expressions, but because of this, it is also easier to 
+understand.
+
+```{r}
+# Use str_locate to get the start and end indexes
+my_string <- "this is my string"
+my_location <- str_locate(my_string, "my")
+my_location
+```
+
+```{r}
+# Use str_sub to extract substring
+s <- my_location[,"start"]
+e <- my_location[,"end"]
+str_sub(my_string, s, e)
+```
+
+```{r}
+my_string_location <- str_locate(my_string, "string")
+s <- my_string_location[,"start"]
+e <- my_string_location[,"end"]
+str_sub(my_string, s, e)
+```
+
+```{r}
+# How the hell does this work?
+(your_string <- my_string)
+(s <- my_location[,"start"])
+(e <- my_location[,"end"])
+(str_sub(your_string, s, e) <- "your") # This part??
+your_string
+```
+
+```{r}
+# How the hell does this work?
+(your_banana <- your_string)
+(your_string_location <- str_locate(your_string, "string"))
+(s <- your_string_location[,"start"])
+(e <- your_string_location[,"end"])
+(str_sub(your_banana, s, e) <- "banana") # This part??
+your_banana
+```
+
+When you assign to a call to str_sub(), it looks like you are modifying a string. This 
+is an illusion. Assignment functions create new data and change the data that a variable 
+refers to. So, if you have more than one reference to a string, be careful. Only one variable 
+will point to the new value; the remaining will point to the old string. This is not specific 
+to str_sub() but for R in general, and it is a potential source of errors.
+
+If you often write code to produce standard reports, virtually the same text each time 
+but with a few selected values changed, then you are going to love str_glue(). This 
+does precisely what you want. You give str_glue() a template string, a string with the 
+mutable pieces in curly brackets. The result of calling str_glue() is the template text but 
+with the values in the curly brackets replaced by what R expression they contain.
+The most straightforward use is when the template refers to variables.
+
+```{r}
+macdonald <- "Old MacDonald"
+eieio <- "E-I-E-I-O"
+```
+
+```{r}
+# This is like those f-strings in python
+str_glue("{macdonald} had a farm. {eieio}")
+```
+
+```{r}
+# The variables do not need to be global. T
+str_glue(
+ "{macdonald} had a farm. {eieio}",
+ macdonald = "Thomas",
+ eieio = "He certainly did not!"
+)
+```
+
+Generally, you can put R expressions in the curly brackets, and the result of 
+evaluating the expressions will be what is inserted into the template string.
+
+```{r}
+str_glue("{str_dup(\"NA-\", times = 7)}NA BATMAN!")
+
+str_glue("Holy {mean(1:10)} BATMAN!")
+```
+
+### Regular expressions
+
+```{r}
+my_words <- c( "cat", "cart","carrot", "catastrophe",
+               "dog","rat",  "bet")
+my_words
+```
+
+```{r}
+# Flexible matching though metacharacters
+str_view(my_words , ".at")
+```
+
+```{r}
+# . on it's own matches exactly one occurrence
+str_subset(my_words, "c..t")
+```
+
+```{r}
+# + (plus) represents one or more occurrences
+str_subset(my_words, "c.r+")
+```
+
+```{r}
+# * (star) represents zero or more occurrences
+str_subset(my_words, "c.r*")
+```
+
+```{r}
+# Group terms with parentheses ( and )
+str_extract(my_words, "(at)|(og)+")
+```
+
+```{r}
+# Alternation operator | ( logical OR ) for groups
+str_match(my_words, "(c.t)|(c.rt)")
+```
+
+```{r}
+# Capture groups with str_match()
+str_match(my_words, "c(a.)+t")
+```
+
+```{r}
+# Quantifying a number of matches
+# A or AA
+dna <- "ATGGTAACCGGTAGGTAGTAAAGGTCCC"
+str_view(dna, "AA?")
+```
+
+```{r}
+# AA or more A's
+str_view(dna, "AA+")
+```
+
+```{r}
+# Three or more A's
+str_view(dna, "A{3,}")
+```
+
+```{r}
+# Matches are greedy by default
+# Match the longest possible subsequence.
+str_extract(dna, "AAG.{2,5}")
+str_extract(dna, "ATG.+C")
+```
+
+```{r}
+# Lazy matching with ?
+str_extract(dna, "AAG.{2,5}?")
+str_extract(dna, "ATG.+?C")
+```
+
+```{r}
+# Anchors
+# ^ Start of string
+my_words
+str_subset(my_words , '^c')
+```
+
+```{r}
+# $ End of string
+str_subset(my_words, "r.$")
+```
+
+Character classes
+
+```{r}
+# Examples
+
+uniprot <- c("Q6QU88_CALBL", "CO1A2_HUMAN", "SAMH1_HUMAN", 
+             "NPRL2_DROME", "GLUC_HUMAN")
+
+str_extract(uniprot, "\\d+")
+```
+
+```{r}
+str_count(uniprot, "\\w+")
+```
+
+```{r}
+# Matching "everything that you want"
+str_extract(uniprot, "\\S+_")
+```
+
+```{r}
+str_subset(uniprot, "[:digit:]")
+str_extract(uniprot, "[:digit:]")
+```
+
+```{r}
+# Matching metacharacters
+# Use \\ to escape to literal character (in many other langs only \ is used)
+vec2 <- c("YKL045W-A", "12+45=57", "$1200.00", "ID2.2")
+
+# Not what we want
+str_subset(vec2 , '.')
+
+# Better
+str_subset(vec2 , '\\.')
+```
+
+```{r}
+# Backreferences
+# Group matches: \1, \2 and so forth refer to groups matched with ().
+str_replace(uniprot, '(\\S+)_(\\S+)', "\\2: \\1")
+```
+
+Helpers
+regexplain
+
+Simple addin for RStudio by Garrick Aden-Buie
+
+    Test regular expressions on the fly
+    Reference library
+    Cheatsheet
+    test it live at https://www.garrickadenbuie.com/project/regexplain/
+
+
+devtools::install_github("gadenbuie/regexplain")
+regexplain::regexplain_gadget()

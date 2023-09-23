@@ -1,0 +1,275 @@
+---
+title: "Data Wrangling 1"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# Load data
+(judgements <- read_tsv("https://biostat2.uni.lu/practicals/data/judgments.tsv"))
+```
+
+```{r}
+# Use glimpse to take a look at the data
+glimpse(judgements)
+```
+
+```{r}
+judgements %>% 
+  select(age, gender, condition)
+```
+
+```{r}
+judgements %>% 
+  select(starts_with("moral"))
+```
+
+```{r}
+judgements %>% 
+  select(ends_with("date"), contains("dilemma"))
+```
+
+```{r}
+judgements %>% 
+  select(-gender, -starts_with(c("STAI", "REI")), -ends_with("id"))
+```
+
+```{r}
+judgements %>% 
+  filter(exclude == 1)
+```
+
+```{r}
+judgements %>% 
+  filter(age > 20, gender == "female")
+```
+
+```{r}
+judgements %>% 
+  filter(age > 20 & gender == "female")
+```
+
+```{r}
+judgements %>% 
+  filter(age > 20 | gender == "female")
+```
+
+```{r}
+judgements %>% 
+  filter(exclude == 0) %>% 
+  relocate(contains("mood"))
+```
+
+```{r}
+judgements %>% 
+  filter(between(mood_pre, 40, 60)) %>% 
+  select(age, gender, condition, mood_pre)
+```
+
+```{r}
+judgements %>% 
+  filter(start_date %in% c("11/3/2014", "11/5/2014")) %>% 
+  select(start_date:age)
+```
+
+```{r}
+judgements %>% 
+  distinct(start_date, end_date, .keep_all = TRUE)
+```
+
+```{r}
+judgements %>% 
+  select(subject, age, mood_post) %>% 
+  arrange(desc(age), mood_post)
+```
+
+```{r}
+judgements %>% 
+  rename(done = finished, sex = gender)
+```
+
+```{r}
+judgements %>% 
+  rename_with(tolower, starts_with("STAI")) %>% 
+  relocate(starts_with("stai"))
+```
+
+```{r}
+judgements %>% 
+  mutate(mood_change = mood_pre - mood_post) %>% 
+  relocate(starts_with("mood"))
+```
+
+```{r}
+judgements %>% 
+  mutate(
+    mood_change = mood_pre - mood_post,
+    mood_change_norm = abs(mood_change / mean(mood_change, na.rm = TRUE))
+) %>% 
+  relocate(starts_with("mood")) %>% 
+  arrange(desc(mood_change_norm))
+```
+
+```{r}
+# Using existing columns updates their content.
+judgements %>% 
+  mutate(mood_pre = mood_pre / mean(mood_pre, na.rm = TRUE),
+         mood_post = mood_post / mean(mood_post, na.rm = TRUE),
+         mood_pre / mean(mood_post, na.rm = TRUE)) %>% 
+  select(starts_with("mood"))
+```
+
+```{r}
+judgements %>% 
+  mutate(
+    mood_pre_cat = 
+      case_when(
+        mood_pre < 25   ~ "poor", 
+        mood_pre < 50   ~ "mid", 
+        mood_pre < 75   ~ "great",
+        mood_pre <= 100 ~ "exceptional",
+        .default = "missing data")
+  )
+```
+
+```{r}
+# case_match() version
+# The column is stated only once
+judgements %>% 
+  mutate(
+    mood_pre_cat = 
+      case_match(mood_pre,
+                 c(0:24)   ~ "poor", 
+                 c(25:49)  ~ "mid", 
+                 c(50:74)  ~ "great",
+                 c(75:100) ~ "exceptional",
+                 .default = "missing data")) %>%  
+  select(mood_pre, mood_pre_cat)
+```
+
+### Act on multiple columns at once using across()
+
+
+```{r}
+# Add 1 to the STAI questionnaire data
+judgements %>% 
+  mutate(across(contains("STAI"), \(x) x + 1))
+```
+
+```{r}
+# To specify different names and not overwrite cols
+judgements %>% 
+  mutate(across(contains("STAI"), \(x) x + 1, .names = "add1.{.col}")) %>% 
+  select(starts_with("add"))
+```
+
+```{r}
+# Another example
+judgements %>% 
+  mutate(across(starts_with("mood"), scale, .names = "rescale.{.col}")) %>% 
+  select(contains("mood"))
+```
+
+For `filter` use `if_any` or `if_all` instead of `across`
+
+```{r}
+# Keep rows where even a single value in selected columns gives TRUE
+judgements %>% 
+  filter(if_any(starts_with("mood_p"), is.na)) %>% 
+  select(starts_with("mood"))
+```
+
+```{r}
+# Keep rows where all values in selected columns returns TRUE
+judgements %>% 
+  filter(if_all(starts_with("mood_p"), is.na)) %>% 
+  select(starts_with("mood"))
+```
+
+Selecting columns with the a predicate and `where`
+The code below affects ALL numeric columns, so be careful!
+```{r}
+judgements %>% 
+  mutate(across(where(is.numeric), \(x) x + 1))
+```
+
+
+However, grouped variable are protected
+```{r}
+judgements %>% 
+  mutate(across(where(is.numeric), \(x) x + 1), .by = subject) %>% 
+  select(finished, subject)
+```
+
+More advanced across: multiple functions
+```{r}
+# Summarise by the mean of mood
+judgements %>% 
+  summarise(
+    across(
+      starts_with("mood"), list(mean, sd), na.rm = TRUE
+    )
+  )
+```
+
+```{r}
+# Better with lambda functions
+judgements %>% 
+  summarise(
+    across(
+      starts_with("moral_dil"),
+      list(aveg = \(x) mean(x, na.rm = TRUE),
+           sdev = \(x) sd(x, na.rm = TRUE))
+    )
+  )
+```
+
+Manipulation by row using `rowwise()` and `c_across` 
+
+```{r}
+judgements %>% 
+  rowwise() %>% 
+  mutate(total_stai = 
+           sum(c_across(starts_with("STAI")), na.rm = TRUE)
+  ) %>% 
+  select(subject, total_stai, contains("STAI"))
+```
+
+
+```{r}
+# Abbreviate the gender column such that only the first character remains
+judgements %>% 
+  mutate(gender = str_sub(gender, 1, 1))
+```
+
+```{r}
+judgements %>% 
+  mutate(
+    gender = 
+      case_match(gender,
+                 "female" ~ "f",
+                 "male"   ~ "m")
+  )
+```
+
+```{r}
+# Create a new STAI_pre_category column. Use case_match() to categorize values in STAI_pre as "low", "normal" or "high". For values < 25 in STAI_pre assign "low", for values > 65 assign "high", and for all other values assign "normal".
+
+judgements %>% 
+  mutate(
+    STAI_pre_cat = 
+      case_match(STAI_pre,
+        0:24 ~ "low",
+        25:65 ~ "normal",
+        .default = "high"
+      )
+  ) %>% 
+  relocate(STAI_pre_cat, STAI_pre)
+```
+
+
+
+

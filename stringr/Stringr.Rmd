@@ -1,0 +1,135 @@
+---
+title: "stringr: String manipulation"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+#### Matching strings
+
+```{r}
+my_words <- c( "cat", "cart","carrot", "catastrophe",
+               "dog","rat",  "bet")
+```
+
+```{r}
+# Detect indices of matching strings
+str_detect(my_words, "r")
+```
+
+```{r}
+# Retrieve matching indices
+str_which(my_words, "r")
+```
+
+```{r}
+# Retrieving matching strings
+str_subset(my_words, "a")
+```
+
+```{r}
+# Inverting in all stringr functions
+str_subset(my_words, "a", negate = TRUE)
+```
+
+```{r}
+# Extracting matches
+str_extract(my_words, "a")
+```
+
+```{r}
+# str_match returns a matrix
+# Includes capture groups. Usually more complicated than what you wanted.
+str_match(my_words, "a")
+```
+
+```{r}
+# Position of a match by start-end
+str_locate(my_words, "a")
+```
+
+```{r}
+# Locate ALL matches
+# Returns list objects. Usually a lot more complicated than what you wanted.
+str_locate_all(my_words, "a")
+```
+
+```{r}
+# How long is my string?
+# Length of items a in character vector.
+str_length(my_words)
+```
+
+#### Elements of strings
+
+```{r}
+# Substring
+str_sub(my_words, 1, 4)
+```
+
+```{r}
+# Replace in the first occurrence of match
+str_replace(my_words, "a", "#")
+```
+
+```{r}
+# Replace all occurrences of matches
+str_replace_all(my_words, "a", "#")
+
+```
+
+#### Splitting strings
+
+```{r}
+# Basic splitting leads to complex output
+str_split(my_words, "a")
+```
+
+```{r}
+# Simplification creates a matrix
+str_split(my_words, "a", simplify = TRUE)
+```
+
+#### Joining strings
+
+```{r}
+# Concatenation
+str_c(my_words, collapse = "|")
+```
+
+```{r}
+# Vectorization of concatenation
+str_c(my_words, my_words, sep = ": ")
+```
+
+```{r}
+# Padding
+str_pad(my_words, width = 6)
+```
+
+```{r}
+# Trimming
+str_trunc(c("anachronism", "antebellum", "antithesis"), width = 6)
+```
+
+```{r}
+# Remove all superfluous spaces
+str_squish(c(" anachronism", "    antebellum  ", "  anti   thesis"))
+```
+
+```{r}
+# Need a better way to express what we want to match!
+my_col <- c("F", "M", "female", "male", "male", "female", "female", "männlich")
+convert_gender <- function(x){
+  case_when(
+    str_detect(x, "m") ~ "Male",
+    str_detect(x, "M") ~ "Male", 
+    str_detect(x, "F") ~ "Female", 
+    str_detect(x, "f") ~ "Female", 
+        TRUE ~ x
+  )
+}
+convert_gender(my_col)
+```

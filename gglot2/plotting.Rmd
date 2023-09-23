@@ -1,0 +1,293 @@
+---
+title: "Plotting"
+output: html_notebook
+---
+
+```{r}
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(palmerpenguins) 
+})
+```
+
+```{r}
+penguins
+```
+
+### Capabilities in ggplot2
+
+```{r}
+penguins %>% 
+  ggplot()
+```
+
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point()
+  
+```
+
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point()
+```
+
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point() +
+  scale_color_manual(values = c("darkorange", "cyan4"), na.translate = FALSE) +
+  cowplot::theme_cowplot()
+```
+
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point() +
+  scale_color_manual(values = c("darkorange", "cyan4"), na.translate = FALSE) +
+  cowplot::theme_cowplot() +
+  labs(
+    title = "Penguin flipper and body mass",
+    caption = "Horst AM, Hill AP, Gorman KB (2020)",
+    subtitle = 
+      "Dimensions for Adelie, Chinstrap and Gentoo Penguins at Palmer Station LTER"
+  )
+```
+
+
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point() +
+  scale_color_manual(values = c("darkorange", "cyan4"), na.translate = FALSE) +
+  cowplot::theme_cowplot() +
+  labs(
+    title = "Penguin flipper and body mass",
+    caption = "Horst AM, Hill AP, Gorman KB (2020)",
+    subtitle = 
+      "Dimensions for Adelie, Chinstrap and Gentoo Penguins at Palmer Station LTER"
+  ) +
+  theme(plot.subtitle = element_text(size = 12))
+```
+
+ 
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point() +
+  scale_color_manual(values = c("darkorange", "cyan4"), na.translate = FALSE) +
+  cowplot::theme_cowplot() +
+  labs(
+    x = "Flipper length (mm)",
+    y = "Body mass (g)",
+    color = "Penguin sex",
+    title = "Penguin flipper and body mass",
+    caption = "Horst AM, Hill AP, Gorman KB (2020)",
+    subtitle = "Dimensions for Adelie/Chinstrap/Gentoo Penguins at Palmer Station LTER"
+  ) +
+  theme(plot.subtitle = element_text(size = 12)) 
+```
+
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point() +
+  scale_color_manual(values = c("darkorange", "cyan4"), na.translate = FALSE) +
+  cowplot::theme_cowplot() +
+  labs(
+    x = "Flipper length (mm)",
+    y = "Body mass (g)",
+    color = "Penguin sex",
+    title = "Penguin flipper and body mass",
+    caption = "Horst AM, Hill AP, Gorman KB (2020)",
+    subtitle = "Dimensions for Adelie/Chinstrap/Gentoo Penguins at Palmer Station LTER"
+  ) +
+  theme(
+    plot.subtitle = element_text(size = 12),
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0, face = "italic"),
+    plot.caption.position = "plot"
+  )
+
+```
+
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point() +
+  scale_color_manual(values = c("darkorange", "cyan4"), na.translate = FALSE) +
+  cowplot::theme_cowplot() +
+  labs(
+    x = "Flipper length (mm)",
+    y = "Body mass (g)",
+    color = "Penguin sex",
+    title = "Penguin flipper and body mass",
+    caption = "Horst AM, Hill AP, Gorman KB (2020)",
+    subtitle = "Dimensions for Adelie/Chinstrap/Gentoo Penguins at Palmer Station LTER"
+  ) +
+  theme(
+    plot.subtitle = element_text(size = 12),
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0, face = "italic"),
+    plot.caption.position = "plot"
+  ) +
+  facet_wrap(~ species)
+
+```
+ 
+ 
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point() +
+  scale_color_manual(values = c("darkorange", "cyan4"), na.translate = FALSE) +
+  cowplot::theme_cowplot() +
+  labs(
+    x = "Flipper length (mm)",
+    y = "Body mass (g)",
+    color = "Penguin sex",
+    title = "Penguin flipper and body mass",
+    caption = "Horst AM, Hill AP, Gorman KB (2020)",
+    subtitle = "Dimensions for Adelie/Chinstrap/Gentoo Penguins at Palmer Station LTER"
+  ) +
+  theme(
+    plot.subtitle = element_text(size = 12),
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0, face = "italic"),
+    plot.caption.position = "plot"
+  ) +
+  facet_wrap(~ species) +
+  scale_x_continuous(guide = guide_axis(n.dodge = 2))
+```
+ 
+```{r}
+penguins %>% 
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, color = sex)) +
+  geom_point() +
+  scale_color_manual(values = c("darkorange", "cyan4"), na.translate = FALSE) +
+  cowplot::theme_cowplot() +
+  labs(
+    x = "Flipper length (mm)",
+    y = "Body mass (g)",
+    color = "Penguin sex",
+    title = "Penguin flipper and body mass",
+    caption = "Horst AM, Hill AP, Gorman KB (2020)",
+    subtitle = "Dimensions for Adelie/Chinstrap/Gentoo Penguins at Palmer Station LTER"
+  ) +
+  theme(
+    plot.subtitle = element_text(size = 12),
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0, face = "italic"),
+    plot.caption.position = "plot"
+  ) +
+  facet_wrap(~ species) +
+  scale_x_continuous(guide = guide_axis(n.dodge = 2)) +
+  scale_y_continuous(labels = scales::label_comma())
+```
+
+ ### Your first plot
+ 
+```{r}
+# Note that aes is specified inside the geom_point here
+penguins %>% 
+  ggplot() + 
+  geom_point(aes(bill_length_mm, bill_depth_mm, color = species))
+```
+
+
+```{r}
+# Refer to one of the column data, here: mistake
+penguins %>% 
+  ggplot() + 
+  geom_point(aes(bill_length_mm, bill_depth_mm, color = country))
+```
+
+
+```{r}
+# Passing the unknown column as string as a different effect:
+# This is hardly useful, but we shall see an application later.
+# Stick to the 2 mapping rules: In aes() Refer to a valid column.
+
+penguins %>% 
+  ggplot() + 
+  geom_point(aes(bill_length_mm, bill_depth_mm, color = "country"))
+```
+
+Mapping aesthetics correctly
+In aes() and refer to a data column
+
+```{r}
+penguins %>% 
+  ggplot() +
+  geom_bar(aes(y = species,
+               fill = sex))
+```
+
+How not using a string for mapping is useful?
+
+Fair question
+
+    Could we pass an expression?
+    Which penguins are above 4 kg?
+    Use body_mass_g > 4000 that return a boolean to find out
+
+```{r}
+# The expression was evaluated in penguins context 
+# Obvious that Gentoo are bigger than the 2 other species
+ggplot(penguins) +
+  geom_bar(aes(y = species,
+               fill = body_mass_g > 4000))
+```
+
+Inheritance of arguments across layers
+
+Compare the two following (great example of a Simpson's paradox):
+
+
+    aesthetics in ggplot() are passed on to all geometries.
+    aesthetics in geom_*() are specific (and can overwrite inherited)
+
+```{r}
+ggplot(penguins,
+       aes(x = bill_length_mm,
+           y = bill_depth_mm)) +
+  geom_point(aes(colour = species)) +
+  geom_smooth(method = "lm", formula = 'y ~ x')
+```
+
+```{r}
+ggplot(penguins,
+       aes(x = bill_length_mm,
+           y = bill_depth_mm,
+           colour = species)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = 'y ~ x')
+```
+
+Try it
+
+    Map the island variable to a shape aesthetics for both dots and linear models
+    All dots (circles / triangles / squares) with:
+        A size of 5
+        A transparency of 30% (alpha = 0.7)
+
+```{r}
+penguins %>% 
+  ggplot(aes(bill_length_mm, bill_depth_mm, shape = island, color = species)) +
+  geom_point(size = 5, alpha = 0.7) +
+  geom_smooth(method = "lm", formula = 'y ~ x')
+```
+
+### Joining observations
+
+```{r}
+set.seed(212) # tidyr::crossing generate combinations
+tib <- tibble(crossing(x = letters[1:4], 
+                       g = factor(1:2)), 
+              y = rnorm(8))
+tib
+```
+
+Invisible aesthetic: grouping
